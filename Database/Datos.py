@@ -1,4 +1,4 @@
-from Conexion_SQL_Server import *
+from Database.Conexion_SQL_Server import *
 
 class BD:
     def datosRPU(RPU):

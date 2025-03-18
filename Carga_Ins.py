@@ -8,8 +8,8 @@ import tkinter as tk
 from tkcalendar import DateEntry
 from datetime import datetime
 import locale
-from Conexion_SQL_Server import *
-from Datos import * 
+from Database.Conexion_SQL_Server import *
+from Database.Datos import * 
 import sys
 import math 
 
@@ -33,12 +33,12 @@ locale.setlocale(locale.LC_TIME, "es_MX")
 RPU = 273950100253
 RPE = "JA117"
 # 🔹 Cargar imagen correctamente con PIL
-imagen = Image.open("Logo_CFE.png") 
+imagen = Image.open("Imagenes/Logo_CFE.png") 
 imagen = imagen.resize((400, 125))
 imagen_tk = ImageTk.PhotoImage(imagen)
 imagen = imagen.convert("RGBA")
 
-imagen2 = Image.open("Logo_Medicion.jpg") 
+imagen2 = Image.open("Imagenes/Logo_Medicion.jpg") 
 imagen2 = imagen2.resize((175, 175))
 imagen_tk2 = ImageTk.PhotoImage(imagen2)
 imagen2 = imagen2.convert("RGBA")
