@@ -374,24 +374,23 @@ class PeriodoIncompleto(ctk.CTkFrame):
 
     def get_range(self):
         # Obtener la fecha seleccionada y mostrarla con Año-Mes-Día
-        desde_año = datetime.strptime(self.date_desde.get(), "%Y-%m-%d").strftime("%Y")
-        desde_mes = datetime.strptime(self.date_desde.get(), "%Y-%m-%d").strftime("%m")
-        desde_mes_palabra = datetime.strptime(self.date_desde.get(), "%Y-%m-%d").strftime("%B")
-        desde_dia = datetime.strptime(self.date_desde.get(), "%Y-%m-%d").strftime("%d")
+        incompleto_desde_año = datetime.strptime(self.date_desde.get(), "%Y-%m-%d").strftime("%Y")
+        incompleto_desde_mes = datetime.strptime(self.date_desde.get(), "%Y-%m-%d").strftime("%m")
+        incompleto_desde_dia = datetime.strptime(self.date_desde.get(), "%Y-%m-%d").strftime("%d")
 
-        hasta_año = datetime.strptime(self.date_hasta.get(), "%Y-%m-%d").strftime("%Y")
-        hasta_mes = datetime.strptime(self.date_hasta.get(), "%Y-%m-%d").strftime("%m")
-        hasta_mes_palabra = datetime.strptime(self.date_hasta.get(), "%Y-%m-%d").strftime("%B")
-        hasta_dia = datetime.strptime(self.date_hasta.get(), "%Y-%m-%d").strftime("%d")
+        incompleto_hasta_año = datetime.strptime(self.date_hasta.get(), "%Y-%m-%d").strftime("%Y")
+        incompleto_hasta_año_formato = datetime.strptime(self.date_hasta.get(), "%Y-%m-%d").strftime("%Y")[-2:]
+        incompleto_hasta_mes = datetime.strptime(self.date_hasta.get(), "%Y-%m-%d").strftime("%m")
+        incompleto_hasta_dia = datetime.strptime(self.date_hasta.get(), "%Y-%m-%d").strftime("%d")
         
-        return desde_año, desde_mes, desde_mes_palabra, desde_dia, hasta_año, hasta_mes, hasta_mes_palabra, hasta_dia
+        return incompleto_desde_año, incompleto_desde_mes, incompleto_desde_dia, incompleto_hasta_año, incompleto_hasta_año_formato, incompleto_hasta_mes, incompleto_hasta_dia
 
 
 lbl34 = customtkinter.CTkLabel(calculos, text="Periodo Incompleto", fg_color="Gray", bg_color="Gray", text_color="White", width=75, height=20, font=("Arial", 16,"bold"))
 lbl34.place(relx=0.05, rely=0.70)
 
-periodo_selector = PeriodoIncompleto(calculos)
-periodo_selector.place(relx=0.05, rely=0.75)  # Ajusta la posición
+periodo_selector_incompleto = PeriodoIncompleto(calculos)
+periodo_selector_incompleto.place(relx=0.05, rely=0.75)  # Ajusta la posición
 # Fin del apartado de Periodo Incompleto
 
 lbl14 = customtkinter.CTkLabel(calculos, text="Anomalia :", fg_color="Gray", bg_color="Gray", text_color="White", width=75, height=20, font=("Arial", 16,"bold"))
@@ -432,25 +431,42 @@ def Calculos():
     HrsUso.configure(text=f"{promedio_hrs_uso:.2f}")
     cpd.configure(text=f"{columnas[5]:.4f}")
 
-     # Obtener fechas del `periodo_selector`
-    try:
-        desde_año, desde_mes, desde_mes_palabra, desde_dia, hasta_año, hasta_mes, hasta_mes_palabra, hasta_dia = periodo_selector.get_range()
-        lbl31.configure(text=f"Del {desde_dia} de {desde_mes_palabra} de {desde_año} al {hasta_dia} de {hasta_mes_palabra} de {hasta_año}")
-        desde = str(desde_año)+"-"+str(desde_mes)+"-"+str(desde_dia)
-        hasta = str(hasta_año)+"-"+str(hasta_mes)+"-"+str(hasta_dia)
-    except Exception as e:
-        print(f"Error obteniendo rango de fechas: {e}")
-        desde, hasta = 0, 0  # Valores por defecto en caso de error
-    
     # Limpiar la tabla antes de insertar nuevos datos
     Tabla.delete(*Tabla.get_children())
 
-    # Variables para obtener los calculos
     try:
         CPD = float(cpd.cget("text"))
     except ValueError:
         CPD = 0 
 
+    # Colocar fechas de periodo incompleto en la tabla
+    incompleto_desde_año, incompleto_desde_mes, incompleto_desde_dia, incompleto_hasta_año, incompleto_hasta_año_formato, incompleto_hasta_mes, incompleto_hasta_dia = periodo_selector_incompleto.get_range()
+    
+    desde_incompleto = f"{incompleto_desde_año}-{incompleto_desde_mes}-{incompleto_desde_dia}"
+    hasta_incompleto = f"{incompleto_hasta_año}-{incompleto_hasta_mes}-{incompleto_hasta_dia}"
+    fecha_incompleto = f"{incompleto_hasta_año_formato}{incompleto_hasta_mes}"
+
+    # Convertir strings a objetos datetime
+    desde_incompleto_formato = datetime.strptime(desde_incompleto, "%Y-%m-%d").date()
+    hasta_incompleto_formato = datetime.strptime(hasta_incompleto, "%Y-%m-%d").date()
+
+    # Calcular la diferencia en días
+    dias_incompletos = (hasta_incompleto_formato - desde_incompleto_formato).days
+    cpd_incompleto = math.ceil(dias_incompletos * CPD)  # Redondear siempre hacia arriba
+    consumo_incompleto = 0
+    consumoDF_incompleto = math.ceil(cpd_incompleto - 0)  # Redondear siempre hacia arriba
+
+    # Obtener fechas del periodo_selector
+    try:
+        desde_año, desde_mes, desde_mes_palabra, desde_dia, hasta_año, hasta_mes, hasta_mes_palabra, hasta_dia = periodo_selector.get_range()
+        lbl31.configure(text=f"Del {desde_dia} de {desde_mes_palabra} de {desde_año} al {hasta_dia} de {hasta_mes_palabra} de {hasta_año}")
+        desde = f"{desde_año}-{desde_mes}-{desde_dia}"
+        hasta = f"{hasta_año}-{hasta_mes}-{hasta_dia}"
+    except Exception as e:
+        print(f"Error obteniendo rango de fechas: {e}")
+        desde, hasta = 0, 0  # Valores por defecto en caso de error 
+
+    # Variables para obtener los cálculos
     suma_dias = 0
     suma_kWh_total = 0
     suma_kWh_total_DF = 0
@@ -461,8 +477,7 @@ def Calculos():
     tarifa = BD.tarifa(RPU, MedSelect)
     lbl25.configure(text=tarifa[0])
 
-
-    # Mostrar los datos a la tabla
+    # Mostrar los datos en la tabla
     for row in BD.mostrardatos(RPU, MedSelect, desde, hasta):
         FECHA, DESDE, HASTA, CONSUMO = row
 
@@ -470,16 +485,15 @@ def Calculos():
         FECHA_FORMATO = FECHA.strftime('%y%m')
 
         # Formatear las fechas desde y hasta para mostrar solo la fecha y no la hora
-        DESDE_FORMATO = datetime.strftime(DESDE, '%Y-%m-%d')  # Formato de fecha de ejemplo, ajusta según tu formato
-        HASTA_FORMATO = datetime.strftime(HASTA, '%Y-%m-%d') 
+        DESDE_FORMATO = DESDE.strftime('%Y-%m-%d')
+        HASTA_FORMATO = HASTA.strftime('%Y-%m-%d')
 
         # Calcular nuevas columnas
         DIAS = (HASTA - DESDE).days
         CONSUMO_DF = math.ceil(DIAS * CPD)  # Redondear siempre hacia arriba
         CONSUMO_D = math.ceil(CONSUMO_DF - CONSUMO)  # Redondear siempre hacia arriba
 
-
-        # Insertar en la tabla
+        # Insertar en la tabla en orden cronológico
         Tabla.insert("", "end", values=(FECHA_FORMATO, DESDE_FORMATO, HASTA_FORMATO, DIAS, CONSUMO, CONSUMO_DF, CONSUMO_D))
 
         # Acumular sumas
@@ -488,6 +502,46 @@ def Calculos():
         suma_kWh_total_DF += CONSUMO_DF
         suma_kWh_total_D += CONSUMO_D
 
+    # Convertir las fechas de cadena a objetos datetime.date
+    fecha_incompleto_dt = datetime.strptime(fecha_incompleto, "%y%m").date()
+
+    # Obtener todas las filas actuales en la tabla
+    filas = Tabla.get_children()
+    valores = None  # Inicializar valores como None
+
+    # Verificar si la tabla tiene datos
+    if filas:
+        # Obtener la primera fila para comparar la fecha más antigua
+        primera_fila = filas[0]
+        valores = Tabla.item(primera_fila, "values")
+
+        # Verificar si hay datos válidos antes de acceder a valores[0]
+        if valores and len(valores) > 0:
+            try:
+                fecha_bd_dt = datetime.strptime(valores[0], "%y%m").date()
+            except ValueError:
+                print(f"⚠ Error: No se pudo convertir la fecha '{valores[0]}' a datetime.")
+                return  # Salimos de la función en caso de error
+
+            # Comparar fechas para insertar correctamente
+            if fecha_incompleto_dt < fecha_bd_dt:
+                # Insertar al principio
+                Tabla.insert("", "0", values=(fecha_incompleto, desde_incompleto, hasta_incompleto, dias_incompletos, consumo_incompleto, cpd_incompleto, consumoDF_incompleto))
+            else:
+                # Insertar al final
+                Tabla.insert("", "end", values=(fecha_incompleto, desde_incompleto, hasta_incompleto, dias_incompletos, consumo_incompleto, cpd_incompleto, consumoDF_incompleto))
+        else:
+            print("⚠ Error: No se encontraron valores válidos en la tabla.")
+    else:
+        # Si la tabla está vacía, insertar directamente
+        Tabla.insert("", "end", values=(fecha_incompleto, desde_incompleto, hasta_incompleto, dias_incompletos, consumo_incompleto, cpd_incompleto, consumoDF_incompleto))
+    
+    # Sumar el período incompleto a los totales
+    suma_dias += dias_incompletos
+    suma_kWh_total += consumo_incompleto
+    suma_kWh_total_DF += consumoDF_incompleto
+    suma_kWh_total_D += (consumoDF_incompleto - consumo_incompleto)
+    
     totalDias.configure(text=suma_dias)
     totalCFRkwh.configure(text=suma_kWh_total)
     totalDFkwh.configure(text=suma_kWh_total_DF)
@@ -545,11 +599,30 @@ def Calculos():
         "UI18": "OTROS USOS INDEBIDOS"
     }
 
-
     codigo_anomalia = anomalia.get()
     nombre_anomalia = Anomalias.get(codigo_anomalia, "Desconocida")  # Si no está en el diccionario, muestra "Desconocida"
     lbl33.configure(text=nombre_anomalia)
 
+def insertar_en_orden(tabla, nueva_fecha, valores):
+    """Inserta una fila en orden cronológico dentro de la tabla"""
+    filas = tabla.get_children()
+    posicion = None
+
+    # Convertir nueva fecha a número para comparación
+    nueva_fecha = int(nueva_fecha)
+
+    for fila in filas:
+        fila_valores = tabla.item(fila, "values")
+        fecha_existente = int(fila_valores[0])  # Primera columna es la fecha
+
+        if nueva_fecha < fecha_existente:
+            posicion = fila  # Insertar antes de esta fila
+            break
+
+    if posicion:
+        tabla.insert(posicion, "end", values=valores)
+    else:
+        tabla.insert("", "end", values=valores)  # Si no encontró, insertar al final
 
 cargar = ctk.CTkButton(calculos, text="Calcular",fg_color="#2b2b2b", bg_color="Gray", width=100, height=40, font=("Arial", 14, "bold"), hover_color="Green", command=Calculos)
 cargar.place(relx=0.6, rely=0.92)
