@@ -6,7 +6,7 @@ import customtkinter as ctk
 from tkinter import ttk
 import tkinter as tk
 from tkcalendar import DateEntry
-from datetime import datetime
+from datetime import datetime, timedelta
 import locale
 from Database.Conexion_SQL_Server import *
 from Database.Datos import * 
@@ -207,14 +207,14 @@ ExtraccionCuenta()
 calculos = customtkinter.CTkFrame(ventana, width=600, height=655, fg_color="gray", bg_color="Black")
 calculos.place(relx=0, y=235)
 
-lbl12 = customtkinter.CTkLabel(calculos, text="BASE DE CALCULO PARA \n REALIZAR AJUSTE", fg_color="Gray", bg_color="Gray", text_color="White", width=75, height=20, font=("Arial", 16,"bold"))
-lbl12.place(relx=0.35, rely=0.02)
+lbl12 = customtkinter.CTkLabel(calculos, text="BASE DE CALCULO PARA REALIZAR AJUSTE", fg_color="Gray", bg_color="Gray", text_color="White", width=75, height=20, font=("Arial", 16,"bold"))
+lbl12.place(relx=0.22, rely=0.02)
 
 # Tabla
 class TablaApp(ctk.CTkFrame):
     def __init__(self, parent):
         super().__init__(parent, width=550, height=500, fg_color="#2b2b2b", bg_color="#2b2b2b")
-        self.place(relx=0.02, y=75)
+        self.place(relx=0.02, y=42)
 
         self.canvas = ctk.CTkCanvas(self, width=835, height=200, bg="#2b2b2b")
         self.canvas.pack(side="left", fill="both", expand=True)
@@ -232,10 +232,10 @@ class TablaApp(ctk.CTkFrame):
 
         # Botones para agregar y eliminar filas
         self.add_button = ctk.CTkButton(parent, text="Agregar fila", command=self.add_row, bg_color="Gray", fg_color="Green", hover_color="#2fd134")
-        self.add_button.place(relx=0.2, rely=0.45)
+        self.add_button.place(relx=0.2, rely=0.38)
 
         self.remove_button = ctk.CTkButton(parent, text="Quitar fila", command=self.remove_row, bg_color="Gray", fg_color="Darkred", hover_color="Red")
-        self.remove_button.place(relx=0.5, rely=0.45)
+        self.remove_button.place(relx=0.5, rely=0.38)
 
         self.table_frame.bind("<Configure>", self.on_frame_configure)
 
@@ -299,13 +299,12 @@ tabla = TablaApp(calculos)
 
 # Apartado del Periodo
 lbl13 = customtkinter.CTkLabel(calculos, text="Periodo", fg_color="Gray", bg_color="Gray", text_color="White", width=75, height=20, font=("Arial", 16,"bold"))
-lbl13.place(relx=0.05, rely=0.48)
+lbl13.place(relx=0.05, rely=0.42)
 
 class PeriodoSelector(ctk.CTkFrame):
     def __init__(self, master=None):
         super().__init__(master, width=540, height=100)
         self.pack_propagate(False)
-        locale.setlocale(locale.LC_TIME, "es_MX")
 
         # Label Desde
         self.label_desde = ctk.CTkLabel(self, text="Desde (Año-Mes-Día):")
@@ -341,23 +340,30 @@ class PeriodoSelector(ctk.CTkFrame):
         
         return desde_año, desde_mes, desde_mes_palabra, desde_dia, hasta_año, hasta_mes, hasta_mes_palabra, hasta_dia
 
+
 periodo_selector = PeriodoSelector(calculos)
-periodo_selector.place(relx=0.05, rely=0.53)  # Ajusta la posición
+periodo_selector.place(relx=0.05, rely=0.46)  # Ajusta la posición
 # Fin del Apartado Periodo
 
-# Apartado de Periodo Incompleto
+lbl14 = customtkinter.CTkLabel(calculos, text="Anomalia :", fg_color="Gray", bg_color="Gray", text_color="White", width=75, height=20, font=("Arial", 16,"bold"))
+lbl14.place(relx=0.05, rely=0.64)
+
+anomalia = customtkinter.CTkEntry(calculos, width=100, height=20, fg_color="White", bg_color="Gray", text_color="Black")
+anomalia.place(relx=0.2, rely=0.64)
+
 class PeriodoIncompleto(ctk.CTkFrame):
-    def __init__(self, master=None):
+    def __init__(self, master=None, periodo_selector=None):
         super().__init__(master, width=540, height=100)
         self.pack_propagate(False)
-        locale.setlocale(locale.LC_TIME, "es_MX")
+
+        self.periodo_selector = periodo_selector  # Guardamos la referencia del PeriodoSelector
 
         # Label Desde
         self.label_desde = ctk.CTkLabel(self, text="Desde (Año-Mes-Día):")
         self.label_desde.place(relx=0.2, rely=0.1)
 
         # Selector de fecha "Desde" (Formato completo)
-        self.date_desde = DateEntry(self, width=10, background='darkgreen', 
+        self.date_desde = DateEntry(self, width=10, background='darkred', 
                                     foreground='white', borderwidth=2, year=2025, 
                                     date_pattern="yyyy-mm-dd", font=(14))  
         self.date_desde.place(relx=0.23, rely=0.5)
@@ -367,12 +373,38 @@ class PeriodoIncompleto(ctk.CTkFrame):
         self.label_hasta.place(relx=0.55, rely=0.1)
 
         # Selector de fecha "Hasta" (Formato completo)
-        self.date_hasta = DateEntry(self, width=10, background='darkgreen', 
+        self.date_hasta = DateEntry(self, width=10, background='darkred', 
                                     foreground='white', borderwidth=2, year=2025, 
                                     date_pattern="yyyy-mm-dd", font=(14))  
         self.date_hasta.place(relx=0.57, rely=0.5)
 
+        # Validar selección de fechas
+        if self.periodo_selector:
+            self.periodo_selector.date_hasta.bind("<<DateEntrySelected>>", self.update_restrictions)
+
+        # 🆕 Vincular eventos en "Desde" y "Hasta" para revalidar fechas cuando el usuario cambie algo
+        self.date_desde.bind("<<DateEntrySelected>>", self.update_restrictions)
+        self.date_hasta.bind("<<DateEntrySelected>>", self.update_restrictions)
+
+        # Aplicar restricciones iniciales
+        self.update_restrictions()
+    
+    def update_restrictions(self, event=None):
+        # Restringe la selección de fechas en el periodo incompleto
+        if self.periodo_selector and self.periodo_selector.date_desde.get() and self.periodo_selector.date_hasta.get():
+            periodo_desde = datetime.strptime(self.periodo_selector.date_desde.get(), "%Y-%m-%d")
+            periodo_hasta = datetime.strptime(self.periodo_selector.date_hasta.get(), "%Y-%m-%d")
+
+            # 🔹 Permitir seleccionar fechas hasta 1 año antes del inicio del periodo principal
+            min_date = periodo_desde - timedelta(days=365)  
+            max_date = periodo_hasta + timedelta(days=365)  # 🔹 Extender el rango hasta 1 año después
+
+            # Aplicamos restricciones corregidas
+            self.date_desde.config(mindate=min_date, maxdate=max_date)
+            self.date_hasta.config(mindate=min_date, maxdate=max_date)
+
     def get_range(self):
+       
         # Obtener la fecha seleccionada y mostrarla con Año-Mes-Día
         incompleto_desde_año = datetime.strptime(self.date_desde.get(), "%Y-%m-%d").strftime("%Y")
         incompleto_desde_mes = datetime.strptime(self.date_desde.get(), "%Y-%m-%d").strftime("%m")
@@ -389,16 +421,9 @@ class PeriodoIncompleto(ctk.CTkFrame):
 lbl34 = customtkinter.CTkLabel(calculos, text="Periodo Incompleto", fg_color="Gray", bg_color="Gray", text_color="White", width=75, height=20, font=("Arial", 16,"bold"))
 lbl34.place(relx=0.05, rely=0.70)
 
-periodo_selector_incompleto = PeriodoIncompleto(calculos)
+periodo_selector_incompleto = PeriodoIncompleto(calculos, periodo_selector)
 periodo_selector_incompleto.place(relx=0.05, rely=0.75)  # Ajusta la posición
 # Fin del apartado de Periodo Incompleto
-
-lbl14 = customtkinter.CTkLabel(calculos, text="Anomalia :", fg_color="Gray", bg_color="Gray", text_color="White", width=75, height=20, font=("Arial", 16,"bold"))
-lbl14.place(relx=0.05, rely=0.92)
-
-anomalia = customtkinter.CTkEntry(calculos, width=100, height=20, fg_color="White", bg_color="Gray", text_color="Black")
-anomalia.place(relx=0.2, rely=0.92)
-
 
 def Calculos():
     columnas = [0] * 6
@@ -438,23 +463,6 @@ def Calculos():
         CPD = float(cpd.cget("text"))
     except ValueError:
         CPD = 0 
-
-    # Colocar fechas de periodo incompleto en la tabla
-    incompleto_desde_año, incompleto_desde_mes, incompleto_desde_dia, incompleto_hasta_año, incompleto_hasta_año_formato, incompleto_hasta_mes, incompleto_hasta_dia = periodo_selector_incompleto.get_range()
-    
-    desde_incompleto = f"{incompleto_desde_año}-{incompleto_desde_mes}-{incompleto_desde_dia}"
-    hasta_incompleto = f"{incompleto_hasta_año}-{incompleto_hasta_mes}-{incompleto_hasta_dia}"
-    fecha_incompleto = f"{incompleto_hasta_año_formato}{incompleto_hasta_mes}"
-
-    # Convertir strings a objetos datetime
-    desde_incompleto_formato = datetime.strptime(desde_incompleto, "%Y-%m-%d").date()
-    hasta_incompleto_formato = datetime.strptime(hasta_incompleto, "%Y-%m-%d").date()
-
-    # Calcular la diferencia en días
-    dias_incompletos = (hasta_incompleto_formato - desde_incompleto_formato).days
-    cpd_incompleto = math.ceil(dias_incompletos * CPD)  # Redondear siempre hacia arriba
-    consumo_incompleto = 0
-    consumoDF_incompleto = math.ceil(cpd_incompleto - 0)  # Redondear siempre hacia arriba
 
     # Obtener fechas del periodo_selector
     try:
@@ -501,46 +509,6 @@ def Calculos():
         suma_kWh_total += CONSUMO
         suma_kWh_total_DF += CONSUMO_DF
         suma_kWh_total_D += CONSUMO_D
-
-    # Convertir las fechas de cadena a objetos datetime.date
-    fecha_incompleto_dt = datetime.strptime(fecha_incompleto, "%y%m").date()
-
-    # Obtener todas las filas actuales en la tabla
-    filas = Tabla.get_children()
-    valores = None  # Inicializar valores como None
-
-    # Verificar si la tabla tiene datos
-    if filas:
-        # Obtener la primera fila para comparar la fecha más antigua
-        primera_fila = filas[0]
-        valores = Tabla.item(primera_fila, "values")
-
-        # Verificar si hay datos válidos antes de acceder a valores[0]
-        if valores and len(valores) > 0:
-            try:
-                fecha_bd_dt = datetime.strptime(valores[0], "%y%m").date()
-            except ValueError:
-                print(f"⚠ Error: No se pudo convertir la fecha '{valores[0]}' a datetime.")
-                return  # Salimos de la función en caso de error
-
-            # Comparar fechas para insertar correctamente
-            if fecha_incompleto_dt < fecha_bd_dt:
-                # Insertar al principio
-                Tabla.insert("", "0", values=(fecha_incompleto, desde_incompleto, hasta_incompleto, dias_incompletos, consumo_incompleto, cpd_incompleto, consumoDF_incompleto))
-            else:
-                # Insertar al final
-                Tabla.insert("", "end", values=(fecha_incompleto, desde_incompleto, hasta_incompleto, dias_incompletos, consumo_incompleto, cpd_incompleto, consumoDF_incompleto))
-        else:
-            print("⚠ Error: No se encontraron valores válidos en la tabla.")
-    else:
-        # Si la tabla está vacía, insertar directamente
-        Tabla.insert("", "end", values=(fecha_incompleto, desde_incompleto, hasta_incompleto, dias_incompletos, consumo_incompleto, cpd_incompleto, consumoDF_incompleto))
-    
-    # Sumar el período incompleto a los totales
-    suma_dias += dias_incompletos
-    suma_kWh_total += consumo_incompleto
-    suma_kWh_total_DF += consumoDF_incompleto
-    suma_kWh_total_D += (consumoDF_incompleto - consumo_incompleto)
     
     totalDias.configure(text=suma_dias)
     totalCFRkwh.configure(text=suma_kWh_total)
@@ -603,6 +571,83 @@ def Calculos():
     nombre_anomalia = Anomalias.get(codigo_anomalia, "Desconocida")  # Si no está en el diccionario, muestra "Desconocida"
     lbl33.configure(text=nombre_anomalia)
 
+    return suma_dias, suma_kWh_total, suma_kWh_total_DF, suma_kWh_total_D
+
+cargar = ctk.CTkButton(calculos, text="Calcular",fg_color="#2b2b2b", bg_color="Gray", width=100, height=40, font=("Arial", 14, "bold"), hover_color="Green", command=Calculos)
+cargar.place(relx=0.6, rely=0.63)
+
+def Agregar():
+
+    suma_dias, suma_kWh_total, suma_kWh_total_DF, suma_kWh_total_D = Calculos()
+
+    # Colocar fechas de periodo incompleto en la tabla
+    incompleto_desde_año, incompleto_desde_mes, incompleto_desde_dia, incompleto_hasta_año, incompleto_hasta_año_formato, incompleto_hasta_mes, incompleto_hasta_dia = periodo_selector_incompleto.get_range()
+    
+    desde_incompleto = f"{incompleto_desde_año}-{incompleto_desde_mes}-{incompleto_desde_dia}"
+    hasta_incompleto = f"{incompleto_hasta_año}-{incompleto_hasta_mes}-{incompleto_hasta_dia}"
+    fecha_incompleto = f"{incompleto_hasta_año_formato}{incompleto_hasta_mes}"
+
+    # Convertir strings a objetos datetime
+    desde_incompleto_formato = datetime.strptime(desde_incompleto, "%Y-%m-%d").date()
+    hasta_incompleto_formato = datetime.strptime(hasta_incompleto, "%Y-%m-%d").date()
+
+    # Calcular la diferencia en días
+    dias_incompletos = (hasta_incompleto_formato - desde_incompleto_formato).days
+
+    try:
+        CPD = float(cpd.cget("text"))
+    except ValueError:
+        CPD = 0  
+
+    consumo_incompleto_DF  = math.ceil(dias_incompletos * CPD)  # Redondear siempre hacia arriba
+    consumo_incompleto = 0
+    consumoDF_incompleto = math.ceil(consumo_incompleto_DF  - 0)  # Redondear siempre hacia arriba
+
+    # Convertir las fechas de cadena a objetos datetime.date
+    fecha_incompleto_dt = datetime.strptime(fecha_incompleto, "%y%m").date()
+
+    # Obtener todas las filas actuales en la tabla
+    filas = Tabla.get_children()
+    valores = None  # Inicializar valores como None
+
+   # Verificar si la tabla tiene datos
+    if filas:
+        # Obtener la primera fila para comparar la fecha más antigua
+        primera_fila = filas[0]
+        valores = Tabla.item(primera_fila, "values")
+
+        # Verificar si hay datos válidos antes de acceder a valores[0]
+        if valores and len(valores) > 0:
+            try:
+                fecha_bd_dt = datetime.strptime(valores[0], "%y%m").date()
+            except ValueError:
+                print(f"⚠ Error: No se pudo convertir la fecha '{valores[0]}' a datetime.")
+                return  # Salimos de la función en caso de error
+
+            # Comparar fechas para insertar correctamente
+            if fecha_incompleto_dt < fecha_bd_dt:
+                # Insertar al principio
+                Tabla.insert("", "0", values=(fecha_incompleto, desde_incompleto, hasta_incompleto, dias_incompletos, consumo_incompleto, consumo_incompleto_DF, consumoDF_incompleto))
+            else:
+                # Insertar al final
+                Tabla.insert("", "end", values=(fecha_incompleto, desde_incompleto, hasta_incompleto, dias_incompletos, consumo_incompleto, consumo_incompleto_DF, consumoDF_incompleto))
+        else:
+            print("⚠ Error: No se encontraron valores válidos en la tabla.")
+    else:
+        # Si la tabla está vacía, insertar directamente
+        Tabla.insert("", "end", values=(fecha_incompleto, desde_incompleto, hasta_incompleto, dias_incompletos, consumo_incompleto, consumo_incompleto_DF, consumoDF_incompleto))
+    
+    # 3️⃣ Sumamos los valores del periodo incompleto
+    suma_dias += dias_incompletos
+    suma_kWh_total_DF += consumo_incompleto_DF
+    suma_kWh_total_D += consumoDF_incompleto
+
+    # 4️⃣ Actualizamos las etiquetas
+    totalDias.configure(text=suma_dias)
+    totalDFkwh.configure(text=suma_kWh_total_DF)
+    totalDkwh.configure(text=suma_kWh_total_D)
+    lbl28.configure(text=suma_kWh_total_D)
+
 def insertar_en_orden(tabla, nueva_fecha, valores):
     """Inserta una fila en orden cronológico dentro de la tabla"""
     filas = tabla.get_children()
@@ -620,14 +665,12 @@ def insertar_en_orden(tabla, nueva_fecha, valores):
             break
 
     if posicion:
-        tabla.insert(posicion, "end", values=valores)
+        tabla.insert("", "before", posicion, values=valores)  # 🔹 Insertar en orden
     else:
         tabla.insert("", "end", values=valores)  # Si no encontró, insertar al final
 
-cargar = ctk.CTkButton(calculos, text="Calcular",fg_color="#2b2b2b", bg_color="Gray", width=100, height=40, font=("Arial", 14, "bold"), hover_color="Green", command=Calculos)
-cargar.place(relx=0.6, rely=0.92)
-
-
+agregar = ctk.CTkButton(calculos, text="Agregar",fg_color="#2b2b2b", bg_color="Gray", width=100, height=40, font=("Arial", 14, "bold"), hover_color="#FFC300", command=Agregar)
+agregar.place(relx=0.4, rely=0.92)
 # Fin de Seccion de Calculos
 
 # Seccion de Tabla de resultados
