@@ -383,14 +383,16 @@ class PeriodoIncompleto(ctk.CTkFrame):
         # Obtener la fecha seleccionada y mostrarla con Año-Mes-Día
         incompleto_desde_año = datetime.strptime(self.date_desde.get(), "%Y-%m-%d").strftime("%Y")
         incompleto_desde_mes = datetime.strptime(self.date_desde.get(), "%Y-%m-%d").strftime("%m")
+        incompleto_desde_mes_palabra = datetime.strptime(self.date_desde.get(), "%Y-%m-%d").strftime("%B")
         incompleto_desde_dia = datetime.strptime(self.date_desde.get(), "%Y-%m-%d").strftime("%d")
 
         incompleto_hasta_año = datetime.strptime(self.date_hasta.get(), "%Y-%m-%d").strftime("%Y")
         incompleto_hasta_año_formato = datetime.strptime(self.date_hasta.get(), "%Y-%m-%d").strftime("%Y")[-2:]
         incompleto_hasta_mes = datetime.strptime(self.date_hasta.get(), "%Y-%m-%d").strftime("%m")
+        incompleto_hasta_mes_palabra = datetime.strptime(self.date_hasta.get(), "%Y-%m-%d").strftime("%B")
         incompleto_hasta_dia = datetime.strptime(self.date_hasta.get(), "%Y-%m-%d").strftime("%d")
         
-        return incompleto_desde_año, incompleto_desde_mes, incompleto_desde_dia, incompleto_hasta_año, incompleto_hasta_año_formato, incompleto_hasta_mes, incompleto_hasta_dia
+        return incompleto_desde_año, incompleto_desde_mes, incompleto_desde_mes_palabra, incompleto_desde_dia, incompleto_hasta_año, incompleto_hasta_año_formato, incompleto_hasta_mes, incompleto_hasta_mes_palabra, incompleto_hasta_dia
 
 
 lbl34 = customtkinter.CTkLabel(calculos, text="Periodo Incompleto", fg_color="Gray", bg_color="Gray", text_color="White", width=75, height=20, font=("Arial", 16,"bold"))
@@ -571,7 +573,7 @@ def Agregar():
     suma_dias, suma_kWh_total, suma_kWh_total_DF, suma_kWh_total_D = Calculos()
 
     # Colocar fechas de periodo incompleto en la tabla
-    incompleto_desde_año, incompleto_desde_mes, incompleto_desde_dia, incompleto_hasta_año, incompleto_hasta_año_formato, incompleto_hasta_mes, incompleto_hasta_dia = periodo_selector_incompleto.get_range()
+    incompleto_desde_año, incompleto_desde_mes, incompleto_desde_mes_palabra, incompleto_desde_dia, incompleto_hasta_año, incompleto_hasta_año_formato, incompleto_hasta_mes, incompleto_hasta_mes_palabra, incompleto_hasta_dia = periodo_selector_incompleto.get_range()
     
     desde_incompleto = f"{incompleto_desde_año}-{incompleto_desde_mes}-{incompleto_desde_dia}"
     hasta_incompleto = f"{incompleto_hasta_año}-{incompleto_hasta_mes}-{incompleto_hasta_dia}"
@@ -637,6 +639,20 @@ def Agregar():
     totalDFkwh.configure(text=suma_kWh_total_DF)
     totalDkwh.configure(text=suma_kWh_total_D)
     lbl28.configure(text=suma_kWh_total_D)
+
+    desde_año, desde_mes, desde_mes_palabra, desde_dia, hasta_año, hasta_mes, hasta_mes_palabra, hasta_dia = periodo_selector.get_range()
+    # Obtener fechas del periodo principal desde el PeriodoSelector
+    if periodo_selector:
+        periodo_principal_desde = datetime.strptime(periodo_selector.date_desde.get(), "%Y-%m-%d").date()
+        periodo_principal_hasta = datetime.strptime(periodo_selector.date_hasta.get(), "%Y-%m-%d").date()
+    else:
+        messagebox.showerror("Error", "No se pudo obtener el período principal.")
+        return False
+
+    if desde_incompleto_formato > periodo_principal_hasta: 
+        lbl31.configure(text=f"Del {desde_dia} de {desde_mes_palabra} de {desde_año} al {incompleto_hasta_dia} de {incompleto_hasta_mes_palabra} de {incompleto_hasta_año}")
+    elif hasta_incompleto_formato < periodo_principal_desde: 
+        lbl31.configure(text=f"Del {incompleto_desde_dia} de {incompleto_desde_mes_palabra} de {incompleto_desde_año} al {hasta_dia} de {hasta_mes_palabra} de {hasta_año}")
 
 def insertar_en_orden(tabla, nueva_fecha, valores):
     """Inserta una fila en orden cronológico dentro de la tabla"""
