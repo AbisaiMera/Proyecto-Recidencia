@@ -55,7 +55,7 @@ class BD:
             print(f"Error: {ex}")
             return None
 
-    def mostrardatos(RPU, medidor, desde, hasta):
+    def mostrardatos(rpu1, desde1, hasta1, rpu2, desde2, hasta2):
 
         try:
             # Conectar a la base de datos
@@ -63,24 +63,17 @@ class BD:
             with connection.cursor() as cursor:
                 # Consulta SQL mejor estructurada
                 query = """
-                SELECT t4.i4_fecha_ade as FECHA, t4.i4_periodo_consumo_desde as DESDE, t4.i4_periodo_consumo_hasta as HASTA, cll.CONSUMO
-	            FROM SCM.CATAL2 AS t2
-		            left join SCM.CATAL5 as t5 on t2.c2s_rpu=i5_rpu
-		            left join SCM.CATAL3 as t3 on t2.c2s_rpu=I3_RPU
-		            left join SCM.CATAL2A AS t2a on t2.c2s_rpu=t2a.i2a_rpu
-		            left join SCM.CATALL as cll on t2.c2s_rpu=cll.RPU
-		            left join SCM.CATAL4 as t4 on t2.c2s_rpu=t4.i4_rpu
-                WHERE t5.i5_zona='13' AND t2.c2s_rpu = ? AND t3.I3_NUMED = ? AND cll.CONSUMO = t4.i4_kwh
-		            AND ? <= t4.i4_periodo_consumo_hasta
-			        AND ? >= t4.i4_periodo_consumo_desde
-                GROUP BY t2.c2s_rpu, t2.c2s_nombre, t2.c2s_medidores, t2.c2s_tipo_suministro,
-		            t3.I3_NUMED,  t5.i5_agencia, t2.c2s_tarifa,
-		            t5.i5_ciclo,t5.i5_division,t5.i5_zona,t5.i5_agencia,t5.i5_poblacion,t5.i5_ruta, t5.i5_folio,
-		            t2.c2s_tipo_suministro, cll.CONSUMO, t4.i4_kwh, t4.i4_fecha_ade, t4.i4_periodo_consumo_desde, t4.i4_periodo_consumo_hasta
+                SELECT i4_fecha_ade, i4_periodo_consumo_desde, i4_periodo_consumo_hasta, i4_kwh FROM SCM.CATAL4 left join SCM.CATAL5 as t5 on i4_rpu=i5_rpu
+                WHERE i4_rpu = ? AND i4_tipo_ade = 1 AND t5.i5_zona='13' AND ? <= i4_periodo_consumo_hasta AND ? >= i4_periodo_consumo_desde			
 
-                ORDER BY i4_fecha_ade
+                UNION 
+
+                SELECT i4_fecha_ade, i4_periodo_consumo_desde, i4_periodo_consumo_hasta, i4_kwh FROM SCM.CATAL4_HIST left join SCM.CATAL5 as t5 on i4_rpu=i5_rpu
+                WHERE i4_rpu = ? AND i4_tipo_ade = 1 AND t5.i5_zona='13' AND ? <= i4_periodo_consumo_hasta AND ? >= i4_periodo_consumo_desde
+
+                ORDER BY i4_periodo_consumo_desde;
                 """
-                cursor.execute(query, (RPU,medidor,desde,hasta, ))  # Aquí pasamos los parametros correctamente
+                cursor.execute(query, (rpu1, desde1, hasta1, rpu2, desde2, hasta2))  # Aquí pasamos los parametros correctamente
                 resultado = cursor.fetchall()
         
             # Retornar el resultado

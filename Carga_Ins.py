@@ -30,7 +30,7 @@ locale.setlocale(locale.LC_TIME, "es_MX")
 # sys.argv contiene los argumentos pasados
 # RPE = sys.argv[1]  # Primer argumento
 # RPU = sys.argv[2]    # Segundo argumento
-RPU = 273950100253
+RPU = 272020100257
 RPE = "JA117"
 # 🔹 Cargar imagen correctamente con PIL
 imagen = Image.open("Imagenes/Logo_CFE.png") 
@@ -378,31 +378,6 @@ class PeriodoIncompleto(ctk.CTkFrame):
                                     date_pattern="yyyy-mm-dd", font=(14))  
         self.date_hasta.place(relx=0.57, rely=0.5)
 
-        # Validar selección de fechas
-        if self.periodo_selector:
-            self.periodo_selector.date_hasta.bind("<<DateEntrySelected>>", self.update_restrictions)
-
-        # 🆕 Vincular eventos en "Desde" y "Hasta" para revalidar fechas cuando el usuario cambie algo
-        self.date_desde.bind("<<DateEntrySelected>>", self.update_restrictions)
-        self.date_hasta.bind("<<DateEntrySelected>>", self.update_restrictions)
-
-        # Aplicar restricciones iniciales
-        self.update_restrictions()
-    
-    def update_restrictions(self, event=None):
-        # Restringe la selección de fechas en el periodo incompleto
-        if self.periodo_selector and self.periodo_selector.date_desde.get() and self.periodo_selector.date_hasta.get():
-            periodo_desde = datetime.strptime(self.periodo_selector.date_desde.get(), "%Y-%m-%d")
-            periodo_hasta = datetime.strptime(self.periodo_selector.date_hasta.get(), "%Y-%m-%d")
-
-            # 🔹 Permitir seleccionar fechas hasta 1 año antes del inicio del periodo principal
-            min_date = periodo_desde - timedelta(days=365)  
-            max_date = periodo_hasta + timedelta(days=365)  # 🔹 Extender el rango hasta 1 año después
-
-            # Aplicamos restricciones corregidas
-            self.date_desde.config(mindate=min_date, maxdate=max_date)
-            self.date_hasta.config(mindate=min_date, maxdate=max_date)
-
     def get_range(self):
        
         # Obtener la fecha seleccionada y mostrarla con Año-Mes-Día
@@ -468,8 +443,10 @@ def Calculos():
     try:
         desde_año, desde_mes, desde_mes_palabra, desde_dia, hasta_año, hasta_mes, hasta_mes_palabra, hasta_dia = periodo_selector.get_range()
         lbl31.configure(text=f"Del {desde_dia} de {desde_mes_palabra} de {desde_año} al {hasta_dia} de {hasta_mes_palabra} de {hasta_año}")
-        desde = f"{desde_año}-{desde_mes}-{desde_dia}"
-        hasta = f"{hasta_año}-{hasta_mes}-{hasta_dia}"
+        desde1 = f"{desde_año}-{desde_mes}-{desde_dia}"
+        hasta1 = f"{hasta_año}-{hasta_mes}-{hasta_dia}"
+        desde2 = f"{desde_año}-{desde_mes}-{desde_dia}"
+        hasta2 = f"{hasta_año}-{hasta_mes}-{hasta_dia}"
     except Exception as e:
         print(f"Error obteniendo rango de fechas: {e}")
         desde, hasta = 0, 0  # Valores por defecto en caso de error 
@@ -486,8 +463,16 @@ def Calculos():
     lbl25.configure(text=tarifa[0])
 
     # Mostrar los datos en la tabla
-    for row in BD.mostrardatos(RPU, MedSelect, desde, hasta):
+    rpu1 = RPU
+    rpu2 = RPU
+    
+
+    for row in BD.mostrardatos(rpu1, desde1, hasta1, rpu2, desde2, hasta2):
         FECHA, DESDE, HASTA, CONSUMO = row
+
+        # Convertir CONSUMO a entero si es necesario
+        if isinstance(CONSUMO, str):
+            CONSUMO = int(CONSUMO)
 
         # Formatear la fecha para mostrar los últimos 2 dígitos del año y los 2 dígitos del mes
         FECHA_FORMATO = FECHA.strftime('%y%m')
@@ -501,14 +486,15 @@ def Calculos():
         CONSUMO_DF = math.ceil(DIAS * CPD)  # Redondear siempre hacia arriba
         CONSUMO_D = math.ceil(CONSUMO_DF - CONSUMO)  # Redondear siempre hacia arriba
 
-        # Insertar en la tabla en orden cronológico
-        Tabla.insert("", "end", values=(FECHA_FORMATO, DESDE_FORMATO, HASTA_FORMATO, DIAS, CONSUMO, CONSUMO_DF, CONSUMO_D))
+        if 58 <= DIAS <= 63:
+            # Insertar en la tabla en orden cronológico
+            Tabla.insert("", "end", values=(FECHA_FORMATO, DESDE_FORMATO, HASTA_FORMATO, DIAS, CONSUMO, CONSUMO_DF, CONSUMO_D))
 
-        # Acumular sumas
-        suma_dias += DIAS
-        suma_kWh_total += CONSUMO
-        suma_kWh_total_DF += CONSUMO_DF
-        suma_kWh_total_D += CONSUMO_D
+            # Acumular sumas
+            suma_dias += DIAS
+            suma_kWh_total += CONSUMO
+            suma_kWh_total_DF += CONSUMO_DF
+            suma_kWh_total_D += CONSUMO_D
     
     totalDias.configure(text=suma_dias)
     totalCFRkwh.configure(text=suma_kWh_total)
@@ -577,6 +563,10 @@ cargar = ctk.CTkButton(calculos, text="Calcular",fg_color="#2b2b2b", bg_color="G
 cargar.place(relx=0.6, rely=0.63)
 
 def Agregar():
+
+    # Primero, validar que las fechas del periodo incompleto sean correctas
+    if not validar_fecha():
+        return  # Si la validación falla, no continuar con la inserción
 
     suma_dias, suma_kWh_total, suma_kWh_total_DF, suma_kWh_total_D = Calculos()
 
@@ -668,6 +658,31 @@ def insertar_en_orden(tabla, nueva_fecha, valores):
         tabla.insert("", "before", posicion, values=valores)  # 🔹 Insertar en orden
     else:
         tabla.insert("", "end", values=valores)  # Si no encontró, insertar al final
+
+def validar_fecha():
+    try:
+        # Obtener fechas del periodo principal desde el PeriodoSelector
+        if periodo_selector:
+            periodo_principal_desde = datetime.strptime(periodo_selector.date_desde.get(), "%Y-%m-%d")
+            periodo_principal_hasta = datetime.strptime(periodo_selector.date_hasta.get(), "%Y-%m-%d")
+        else:
+            messagebox.showerror("Error", "No se pudo obtener el período principal.")
+            return False
+
+        # Obtener fechas del periodo incompleto
+        periodo_desde = datetime.strptime(periodo_selector_incompleto.date_desde.get(), "%Y-%m-%d")
+        periodo_hasta = datetime.strptime(periodo_selector_incompleto.date_hasta.get(), "%Y-%m-%d")
+
+        # Validar si el periodo incompleto se solapa con el periodo principal
+        if (periodo_principal_desde <= periodo_desde <= periodo_principal_hasta) or \
+           (periodo_principal_desde <= periodo_hasta <= periodo_principal_hasta):
+            messagebox.showerror("Error", "⚠ Las fechas seleccionadas están dentro del período principal.")
+            return False # Salimos de la función
+        
+        return True #Indicacion de que la vaidacion fue exitosa
+
+    except ValueError as e:
+        print(f"⚠ Error al convertir fechas: {e}")
 
 agregar = ctk.CTkButton(calculos, text="Agregar",fg_color="#2b2b2b", bg_color="Gray", width=100, height=40, font=("Arial", 14, "bold"), hover_color="#FFC300", command=Agregar)
 agregar.place(relx=0.4, rely=0.92)
