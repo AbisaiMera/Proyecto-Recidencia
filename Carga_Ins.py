@@ -468,7 +468,6 @@ def Calculos():
     rpu1 = RPU
     rpu2 = RPU
     
-
     for row in BD.mostrardatos(rpu1, desde1, hasta1, rpu2, desde2, hasta2):
         FECHA, DESDE, HASTA, CONSUMO = row
 
@@ -559,18 +558,18 @@ def Calculos():
     nombre_anomalia = Anomalias.get(codigo_anomalia, "Desconocida")  # Si no está en el diccionario, muestra "Desconocida"
     lbl33.configure(text=nombre_anomalia)
 
-    return suma_dias, suma_kWh_total, suma_kWh_total_DF, suma_kWh_total_D
+    return suma_dias, suma_kWh_total, suma_kWh_total_DF, suma_kWh_total_D, rpu1, desde1, hasta1, rpu2, desde2, hasta2
 
 cargar = ctk.CTkButton(calculos, text="Calcular",fg_color="#2b2b2b", bg_color="Gray", width=100, height=40, font=("Arial", 14, "bold"), hover_color="Green", command=Calculos)
 cargar.place(relx=0.6, rely=0.63)
 
 def Agregar():
 
-    # Primero, validar que las fechas del periodo incompleto sean correctas
-    if not validar_fecha():
-        return  # Si la validación falla, no continuar con la inserción
+    suma_dias, suma_kWh_total, suma_kWh_total_DF, suma_kWh_total_D, rpu1, desde1, hasta1, rpu2, desde2, hasta2 = Calculos()
 
-    suma_dias, suma_kWh_total, suma_kWh_total_DF, suma_kWh_total_D = Calculos()
+    # Primero, validar que las fechas del periodo incompleto sean correctas
+    if not validar_fecha(rpu1, desde1, hasta1, rpu2, desde2, hasta2):
+        return  # Si la validación falla, no continuar con la inserción
 
     # Colocar fechas de periodo incompleto en la tabla
     incompleto_desde_año, incompleto_desde_mes, incompleto_desde_mes_palabra, incompleto_desde_dia, incompleto_hasta_año, incompleto_hasta_año_formato, incompleto_hasta_mes, incompleto_hasta_mes_palabra, incompleto_hasta_dia = periodo_selector_incompleto.get_range()
@@ -675,30 +674,32 @@ def insertar_en_orden(tabla, nueva_fecha, valores):
     else:
         tabla.insert("", "end", values=valores)  # Si no encontró, insertar al final
 
-def validar_fecha():
-    try:
-        # Obtener fechas del periodo principal desde el PeriodoSelector
-        if periodo_selector:
-            periodo_principal_desde = datetime.strptime(periodo_selector.date_desde.get(), "%Y-%m-%d")
-            periodo_principal_hasta = datetime.strptime(periodo_selector.date_hasta.get(), "%Y-%m-%d")
-        else:
-            messagebox.showerror("Error", "No se pudo obtener el período principal.")
-            return False
+def validar_fecha(rpu1, desde1, hasta1, rpu2, desde2, hasta2):
+    # Consultar la base de datos para obtener los registros
+    datos_bd = BD.mostrardatos(rpu1, desde1, hasta1, rpu2, desde2, hasta2)
+    
+    # Verificar si hay datos en la BD
+    if not datos_bd:
+        messagebox.showerror("Error", "⚠ No hay datos en la base de datos para validar.")
+        return False
 
-        # Obtener fechas del periodo incompleto
-        periodo_desde = datetime.strptime(periodo_selector_incompleto.date_desde.get(), "%Y-%m-%d")
-        periodo_hasta = datetime.strptime(periodo_selector_incompleto.date_hasta.get(), "%Y-%m-%d")
+    # Obtener la fecha más antigua y la más reciente en la BD
+    fechas_desde = [registro[1].date() for registro in datos_bd]  # "DESDE"
+    fechas_hasta = [registro[2].date() for registro in datos_bd]  # "HASTA"
+    
+    fecha_desde_bd = min(fechas_desde)  # Primer registro en la BD
+    fecha_hasta_bd = max(fechas_hasta)  # Último registro en la BD
 
-        # Validar si el periodo incompleto se solapa con el periodo principal
-        if (periodo_principal_desde <= periodo_desde <= periodo_principal_hasta) or \
-           (periodo_principal_desde <= periodo_hasta <= periodo_principal_hasta):
-            messagebox.showerror("Error", "⚠ Las fechas seleccionadas están dentro del período principal.")
-            return False # Salimos de la función
-        
-        return True #Indicacion de que la vaidacion fue exitosa
+    # Obtener fechas del periodo incompleto
+    periodo_desde = datetime.strptime(periodo_selector_incompleto.date_desde.get(), "%Y-%m-%d").date()
+    periodo_hasta = datetime.strptime(periodo_selector_incompleto.date_hasta.get(), "%Y-%m-%d").date()
 
-    except ValueError as e:
-        print(f"⚠ Error al convertir fechas: {e}")
+    # Validar si el periodo incompleto se solapa con el periodo principal de la BD
+    if (fecha_desde_bd <= periodo_desde <= fecha_hasta_bd) or (fecha_desde_bd <= periodo_hasta <= fecha_hasta_bd):
+        messagebox.showerror("Error", "⚠ Las fechas seleccionadas están dentro del período principal.")
+        return False  # Validación fallida
+
+    return True  # Validación exitosa
 
 agregar = ctk.CTkButton(calculos, text="Agregar",fg_color="#2b2b2b", bg_color="Gray", width=100, height=40, font=("Arial", 14, "bold"), hover_color="#FFC300", command=Agregar)
 agregar.place(relx=0.4, rely=0.92)
