@@ -91,6 +91,9 @@ def ExtraccionCuenta():
     ruta.configure(text=rta)
     folio.configure(text=flio)
 
+ahora = datetime.now()
+fecha_hora = ahora.strftime("%A, %d %B, %Y")
+
 lbl1 = customtkinter.CTkLabel(datos, text="R.P.E :", **estiloDatos)
 lbl1.place(relx=0.05, rely=0.2)
 
@@ -102,6 +105,9 @@ lbl2.place(relx=0.25, rely=0.2)
 
 Nomrpe = customtkinter.CTkLabel(datos, text="Nombre del RPE", **estiloDatos)
 Nomrpe.place(relx=0.3, rely=0.2)
+
+FechaAct = customtkinter.CTkLabel(datos, text=fecha_hora, **estiloDatos)
+FechaAct.place(relx=0.84, rely=0.2)
 
 # Buscar el RPE dentro del diccionario de trabajadores
 nombre_rpe = ListaRPE.get(RPE, "Trabajador no encontrado")  # Si no está en el diccionario, muestra "Trabajador no encontrado"
@@ -439,19 +445,7 @@ def Calculos():
     try:
         CPD = float(cpd.cget("text"))
     except ValueError:
-        CPD = 0 
-
-    # Obtener fechas del periodo_selector
-    try:
-        desde_año, desde_mes, desde_mes_palabra, desde_dia, hasta_año, hasta_mes, hasta_mes_palabra, hasta_dia = periodo_selector.get_range()
-        lbl31.configure(text=f"Del {desde_dia} de {desde_mes_palabra} de {desde_año} al {hasta_dia} de {hasta_mes_palabra} de {hasta_año}")
-        desde1 = f"{desde_año}-{desde_mes}-{desde_dia}"
-        hasta1 = f"{hasta_año}-{hasta_mes}-{hasta_dia}"
-        desde2 = f"{desde_año}-{desde_mes}-{desde_dia}"
-        hasta2 = f"{hasta_año}-{hasta_mes}-{hasta_dia}"
-    except Exception as e:
-        print(f"Error obteniendo rango de fechas: {e}")
-        desde, hasta = 0, 0  # Valores por defecto en caso de error 
+        CPD = 0  
 
     # Variables para obtener los cálculos
     suma_dias = 0
@@ -467,6 +461,12 @@ def Calculos():
     # Mostrar los datos en la tabla
     rpu1 = RPU
     rpu2 = RPU
+
+    desde_año, desde_mes, desde_mes_palabra, desde_dia, hasta_año, hasta_mes, hasta_mes_palabra, hasta_dia = periodo_selector.get_range()
+    desde1 = f"{desde_año}-{desde_mes}-{desde_dia}"
+    hasta1 = f"{hasta_año}-{hasta_mes}-{hasta_dia}"
+    desde2 = f"{desde_año}-{desde_mes}-{desde_dia}"
+    hasta2 = f"{hasta_año}-{hasta_mes}-{hasta_dia}"
     
     for row in BD.mostrardatos(rpu1, desde1, hasta1, rpu2, desde2, hasta2):
         FECHA, DESDE, HASTA, CONSUMO = row
@@ -554,6 +554,26 @@ def Calculos():
         "UI18": "OTROS USOS INDEBIDOS"
     }
 
+    # Obtener fechas del periodo_selector
+    items = Tabla.get_children()
+    if not items:
+        messagebox.showerror("Error", "⚠ No hay datos en la tabla para validar.")
+        return False
+
+    # Tomar el primer y último registro de la tabla
+    primer_registro = Tabla.item(items[0], "values")  # Primer registro
+    ultimo_registro = Tabla.item(items[-1], "values")  # Último registro
+
+    desde_año_txt = datetime.strptime(primer_registro[1], "%Y-%m-%d").strftime("%Y")
+    desde_mes_palabra_txt = datetime.strptime(primer_registro[1], "%Y-%m-%d").strftime("%B")
+    desde_dia_txt = datetime.strptime(primer_registro[1], "%Y-%m-%d").strftime("%d")
+
+    hasta_año_txt = datetime.strptime(ultimo_registro[2], "%Y-%m-%d").strftime("%Y")
+    hasta_mes_palabra_txt = datetime.strptime(ultimo_registro[2], "%Y-%m-%d").strftime("%B")
+    hasta_dia_txt = datetime.strptime(ultimo_registro[2], "%Y-%m-%d").strftime("%d")
+
+    lbl31.configure(text=f"Del {desde_dia_txt} de {desde_mes_palabra_txt} de {desde_año_txt} al {hasta_dia_txt} de {hasta_mes_palabra_txt} de {hasta_año_txt}")
+
     codigo_anomalia = anomalia.get()
     nombre_anomalia = Anomalias.get(codigo_anomalia, "Desconocida")  # Si no está en el diccionario, muestra "Desconocida"
     lbl33.configure(text=nombre_anomalia)
@@ -566,14 +586,13 @@ cargar.place(relx=0.6, rely=0.63)
 def Agregar():
 
     suma_dias, suma_kWh_total, suma_kWh_total_DF, suma_kWh_total_D, rpu1, desde1, hasta1, rpu2, desde2, hasta2 = Calculos()
-
+    incompleto_desde_año, incompleto_desde_mes, incompleto_desde_mes_palabra, incompleto_desde_dia, incompleto_hasta_año, incompleto_hasta_año_formato, incompleto_hasta_mes, incompleto_hasta_mes_palabra, incompleto_hasta_dia = periodo_selector_incompleto.get_range()
+    
     # Primero, validar que las fechas del periodo incompleto sean correctas
     if not validar_fecha(rpu1, desde1, hasta1, rpu2, desde2, hasta2):
         return  # Si la validación falla, no continuar con la inserción
 
     # Colocar fechas de periodo incompleto en la tabla
-    incompleto_desde_año, incompleto_desde_mes, incompleto_desde_mes_palabra, incompleto_desde_dia, incompleto_hasta_año, incompleto_hasta_año_formato, incompleto_hasta_mes, incompleto_hasta_mes_palabra, incompleto_hasta_dia = periodo_selector_incompleto.get_range()
-    
     desde_incompleto = f"{incompleto_desde_año}-{incompleto_desde_mes}-{incompleto_desde_dia}"
     hasta_incompleto = f"{incompleto_hasta_año}-{incompleto_hasta_mes}-{incompleto_hasta_dia}"
     fecha_incompleto = f"{incompleto_hasta_año_formato}{incompleto_hasta_mes}"
@@ -648,11 +667,6 @@ def Agregar():
         messagebox.showerror("Error", "No se pudo obtener el período principal.")
         return False
 
-    if desde_incompleto_formato > periodo_principal_hasta: 
-        lbl31.configure(text=f"Del {desde_dia} de {desde_mes_palabra} de {desde_año} al {incompleto_hasta_dia} de {incompleto_hasta_mes_palabra} de {incompleto_hasta_año}")
-    elif hasta_incompleto_formato < periodo_principal_desde: 
-        lbl31.configure(text=f"Del {incompleto_desde_dia} de {incompleto_desde_mes_palabra} de {incompleto_desde_año} al {hasta_dia} de {hasta_mes_palabra} de {hasta_año}")
-
 def insertar_en_orden(tabla, nueva_fecha, valores):
     """Inserta una fila en orden cronológico dentro de la tabla"""
     filas = tabla.get_children()
@@ -698,6 +712,21 @@ def validar_fecha(rpu1, desde1, hasta1, rpu2, desde2, hasta2):
     if (fecha_desde_bd <= periodo_desde <= fecha_hasta_bd) or (fecha_desde_bd <= periodo_hasta <= fecha_hasta_bd):
         messagebox.showerror("Error", "⚠ Las fechas seleccionadas están dentro del período principal.")
         return False  # Validación fallida
+
+    incompleto_desde_año, incompleto_desde_mes, incompleto_desde_mes_palabra, incompleto_desde_dia, incompleto_hasta_año, incompleto_hasta_año_formato, incompleto_hasta_mes, incompleto_hasta_mes_palabra, incompleto_hasta_dia = periodo_selector_incompleto.get_range()
+    # Obtener la fecha seleccionada y mostrarla con Año-Mes-Día
+    desde_año = fecha_desde_bd.strftime("%Y")
+    desde_mes_palabra = fecha_desde_bd.strftime("%B")
+    desde_dia = fecha_desde_bd.strftime("%d")
+
+    hasta_año = fecha_hasta_bd.strftime("%Y")
+    hasta_mes_palabra = fecha_hasta_bd.strftime("%B")
+    hasta_dia = fecha_hasta_bd.strftime("%d")
+
+    if periodo_desde > fecha_hasta_bd: 
+        lbl31.configure(text=f"Del {desde_dia} de {desde_mes_palabra} de {desde_año} al {incompleto_hasta_dia} de {incompleto_hasta_mes_palabra} de {incompleto_hasta_año}")
+    elif periodo_hasta < fecha_desde_bd: 
+        lbl31.configure(text=f"Del {incompleto_desde_dia} de {incompleto_desde_mes_palabra} de {incompleto_desde_año} al {hasta_dia} de {hasta_mes_palabra} de {hasta_año}")
 
     return True  # Validación exitosa
 
