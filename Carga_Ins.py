@@ -484,8 +484,8 @@ def Calculos():
 
         # Calcular nuevas columnas
         DIAS = (HASTA - DESDE).days
-        CONSUMO_DF = math.ceil(DIAS * CPD)  # Redondear siempre hacia arriba
-        CONSUMO_D = math.ceil(CONSUMO_DF - CONSUMO)  # Redondear siempre hacia arriba
+        CONSUMO_DF = round(DIAS * CPD)  # Redondear hacia arriba o abajo
+        CONSUMO_D = round(CONSUMO_DF - CONSUMO)  # Redondear hacia arriba o abajo
 
         if 58 <= DIAS <= 63:
             # Insertar en la tabla en orden cronológico
@@ -609,9 +609,9 @@ def Agregar():
     except ValueError:
         CPD = 0  
 
-    consumo_incompleto_DF  = math.ceil(dias_incompletos * CPD)  # Redondear siempre hacia arriba
+    consumo_incompleto_DF  = round(dias_incompletos * CPD)  # Redondear hacia arriba o abajo
     consumo_incompleto = 0
-    consumoDF_incompleto = math.ceil(consumo_incompleto_DF  - 0)  # Redondear siempre hacia arriba
+    consumoDF_incompleto = round(consumo_incompleto_DF  - 0)  # Redondear hacia arriba o abajo
 
     # Convertir las fechas de cadena a objetos datetime.date
     fecha_incompleto_dt = datetime.strptime(fecha_incompleto, "%y%m").date()
@@ -658,15 +658,6 @@ def Agregar():
     totalDkwh.configure(text=suma_kWh_total_D)
     lbl28.configure(text=suma_kWh_total_D)
 
-    desde_año, desde_mes, desde_mes_palabra, desde_dia, hasta_año, hasta_mes, hasta_mes_palabra, hasta_dia = periodo_selector.get_range()
-    # Obtener fechas del periodo principal desde el PeriodoSelector
-    if periodo_selector:
-        periodo_principal_desde = datetime.strptime(periodo_selector.date_desde.get(), "%Y-%m-%d").date()
-        periodo_principal_hasta = datetime.strptime(periodo_selector.date_hasta.get(), "%Y-%m-%d").date()
-    else:
-        messagebox.showerror("Error", "No se pudo obtener el período principal.")
-        return False
-
 def insertar_en_orden(tabla, nueva_fecha, valores):
     """Inserta una fila en orden cronológico dentro de la tabla"""
     filas = tabla.get_children()
@@ -709,7 +700,7 @@ def validar_fecha(rpu1, desde1, hasta1, rpu2, desde2, hasta2):
     periodo_hasta = datetime.strptime(periodo_selector_incompleto.date_hasta.get(), "%Y-%m-%d").date()
 
     # Validar si el periodo incompleto se solapa con el periodo principal de la BD
-    if (fecha_desde_bd <= periodo_desde <= fecha_hasta_bd) or (fecha_desde_bd <= periodo_hasta <= fecha_hasta_bd):
+    if (fecha_desde_bd < periodo_desde < fecha_hasta_bd) or (fecha_desde_bd < periodo_hasta < fecha_hasta_bd):
         messagebox.showerror("Error", "⚠ Las fechas seleccionadas están dentro del período principal.")
         return False  # Validación fallida
 

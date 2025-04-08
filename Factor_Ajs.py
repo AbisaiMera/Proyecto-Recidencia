@@ -6,10 +6,10 @@ import customtkinter as ctk
 from tkinter import ttk
 import tkinter as tk
 from tkcalendar import DateEntry
-from datetime import datetime
+from datetime import datetime, timedelta
 import locale
-from Conexion_SQL_Server import *
-from Datos import * 
+from Database.Conexion_SQL_Server import *
+from Database.Datos import * 
 import sys
 import math 
 
@@ -29,17 +29,16 @@ locale.setlocale(locale.LC_TIME, "es_MX")
 
 # sys.argv contiene los argumentos pasados
 # RPE = sys.argv[1]  # Primer argumento
+# RPU = sys.argv[2]    # Segundo argumento
+RPU = 272680903204
 RPE = "JA117"
-#RPU = sys.argv[2]    # Segundo argumento
-RPU = 273950100253
-
 # 🔹 Cargar imagen correctamente con PIL
-imagen = Image.open("Logo_CFE.png") 
+imagen = Image.open("Imagenes/Logo_CFE.png") 
 imagen = imagen.resize((400, 125))
 imagen_tk = ImageTk.PhotoImage(imagen)
 imagen = imagen.convert("RGBA")
 
-imagen2 = Image.open("Logo_Medicion.jpg") 
+imagen2 = Image.open("Imagenes/Logo_Medicion.jpg") 
 imagen2 = imagen2.resize((175, 175))
 imagen_tk2 = ImageTk.PhotoImage(imagen2)
 imagen2 = imagen2.convert("RGBA")
@@ -92,10 +91,13 @@ def ExtraccionCuenta():
     ruta.configure(text=rta)
     folio.configure(text=flio)
 
+ahora = datetime.now()
+fecha_hora = ahora.strftime("%A, %d %B, %Y")
+
 lbl1 = customtkinter.CTkLabel(datos, text="R.P.E :", **estiloDatos)
 lbl1.place(relx=0.05, rely=0.2)
 
-rpe = customtkinter.CTkLabel(datos, text="00000", **estiloDatos)
+rpe = customtkinter.CTkLabel(datos, text=RPE, **estiloDatos)
 rpe.place(relx=0.1, rely=0.2)
 
 lbl2 = customtkinter.CTkLabel(datos, text="Nombre :", **estiloDatos)
@@ -104,11 +106,13 @@ lbl2.place(relx=0.25, rely=0.2)
 Nomrpe = customtkinter.CTkLabel(datos, text="Nombre del RPE", **estiloDatos)
 Nomrpe.place(relx=0.3, rely=0.2)
 
+FechaAct = customtkinter.CTkLabel(datos, text=fecha_hora, **estiloDatos)
+FechaAct.place(relx=0.84, rely=0.2)
+
 # Buscar el RPE dentro del diccionario de trabajadores
 nombre_rpe = ListaRPE.get(RPE, "Trabajador no encontrado")  # Si no está en el diccionario, muestra "Trabajador no encontrado"
     
 Nomrpe.configure(text=nombre_rpe)
-
 
 # Datos RPU - Fila 1
 DatosRPU = BD.datosRPU(RPU)
@@ -117,7 +121,7 @@ MedidoresRPU = BD.medidores(RPU)
 lbl3 = customtkinter.CTkLabel(datos, text="R.P.U :", **estiloDatos)
 lbl3.place(relx=0.05, rely=0.4)
 
-rpu = customtkinter.CTkLabel(datos, text="000000000000", **estiloDatos)
+rpu = customtkinter.CTkLabel(datos, text=RPU, **estiloDatos)
 rpu.place(relx=0.1, rely=0.4)
 
 lbl4 = customtkinter.CTkLabel(datos, text="Cuenta :", **estiloDatos)
@@ -182,7 +186,6 @@ AGENCIAS = {
 }
 
 # Cargar Datos de RPU de la BD en las etiquetas
-rpu.configure(text=RPU)
 
 if DatosRPU and len(DatosRPU) >= 4:
     Nomrpu.configure(text=DatosRPU[1])  # Nombre RPU
@@ -210,22 +213,17 @@ ExtraccionCuenta()
 calculos = customtkinter.CTkFrame(ventana, width=600, height=655, fg_color="gray", bg_color="Black")
 calculos.place(relx=0, y=235)
 
-lbl12 = customtkinter.CTkLabel(calculos, text="BASE DE CALCULO PARA \n REALIZAR AJUSTE", fg_color="Gray", bg_color="Gray", text_color="White", width=75, height=20, font=("Arial", 16,"bold"))
-lbl12.place(relx=0.35, rely=0.02)
+lbl12 = customtkinter.CTkLabel(calculos, text="BASE DE CALCULO PARA REALIZAR AJUSTE", fg_color="Gray", bg_color="Gray", text_color="White", width=75, height=20, font=("Arial", 16,"bold"))
+lbl12.place(relx=0.22, rely=0.02)
 
 # Tabla
 class TablaApp(ctk.CTkFrame):
     def __init__(self, parent):
-        super().__init__(parent, width=550, height=500, fg_color="#2b2b2b", bg_color="#2b2b2b")
-        self.place(relx=0.02, y=75)
+        super().__init__(parent, width=600, height=500, fg_color="#2b2b2b", bg_color="#2b2b2b")
+        self.place(relx=0.02, y=42)
 
-        self.canvas = ctk.CTkCanvas(self, width=835, height=200, bg="#2b2b2b")
+        self.canvas = ctk.CTkCanvas(self, width=860, height=90, bg="#2b2b2b")
         self.canvas.pack(side="left", fill="both", expand=True)
-
-        self.scrollbar = ctk.CTkScrollbar(self, command=self.canvas.yview, fg_color="#2b2b2b")
-        self.scrollbar.pack(side="right", fill="y")
-
-        self.canvas.configure(yscrollcommand=self.scrollbar.set)
 
         self.table_frame = ctk.CTkFrame(self.canvas, fg_color="#2b2b2b", bg_color="#2b2b2b")
         self.canvas.create_window((0, 0), window=self.table_frame, anchor="nw")
@@ -233,20 +231,13 @@ class TablaApp(ctk.CTkFrame):
         self.table = []
         self.create_table()
 
-        # Botones para agregar y eliminar filas
-        self.add_button = ctk.CTkButton(parent, text="Agregar fila", command=self.add_row, bg_color="Gray", fg_color="Green", hover_color="#2fd134")
-        self.add_button.place(relx=0.2, rely=0.45)
-
-        self.remove_button = ctk.CTkButton(parent, text="Quitar fila", command=self.remove_row, bg_color="Gray", fg_color="Darkred", hover_color="Red")
-        self.remove_button.place(relx=0.5, rely=0.45)
-
         self.table_frame.bind("<Configure>", self.on_frame_configure)
 
     def create_table(self):
-        headers = ["Corriente", "Voltaje", "kVA real", "kVA \nCronometro", "% Registración"]
+        headers = ["Corriente", "Voltaje", "kVA real", "kVA cronometro", "% Registración"]
         for col, header in enumerate(headers):
-            label = ctk.CTkLabel(self.table_frame, text=header, fg_color="Green", bg_color="Green", text_color="White", width=105, height=30, font=("Arial", 14, "bold"))
-            label.grid(row=0, column=col, padx=3, pady=3)
+            label = ctk.CTkLabel(self.table_frame, text=header, fg_color="Green", bg_color="Green", text_color="White", width=112, height=25, font=("Arial", 14, "bold"))
+            label.grid(row=0, column=col, padx=1, pady=1)
 
         for _ in range(1):  # Agrega 1 fila inicial
             self.add_row()
@@ -254,42 +245,12 @@ class TablaApp(ctk.CTkFrame):
     def add_row(self):
         row = []
         for j in range(5):  
-                var = ctk.StringVar()
-                entry = ctk.CTkEntry(self.table_frame, width=105, height=30, fg_color="White", bg_color="White", border_color="White", text_color="Black", textvariable=var)
-                entry.grid(row=len(self.table) + 1, column=j, padx=3, pady=3)
-                var.trace_add("write", lambda *args, row=row: self.update_labels(row))  # Detectar cambios en la fila
-                row.append(entry)
-
+            entry = ctk.CTkEntry(self.table_frame, width=112, height=30, fg_color="White", bg_color="White", border_color="White", text_color="Black")
+            entry.grid(row=len(self.table) + 1, column=j, padx=1, pady=1)
+            row.append(entry)
         self.table.append(row)
-        self.update_scrollregion()
-
-    def update_labels(self, row):
-        """Función que calcula Potencia y CPD en base a los valores ingresados en Corriente, Voltaje y Horas/Uso."""
-        try:
-            corriente = float(row[1].get()) if row[1].get() else 0
-            voltaje = float(row[2].get()) if row[2].get() else 0
-            hrs_uso = float(row[4].get()) if row[4].get() else 0
-
-            potencia = ((corriente * voltaje)/1000)*0.9 # Cálculo de Potencia
-            cpd = potencia * hrs_uso  # Cálculo de C.P.D
-
-            row[3].configure(text=f"{potencia:.3f}")  # Actualiza el Label de Potencia
-            row[5].configure(text=f"{cpd:.4f}")  # Actualiza el Label de CPD
-        except ValueError:
-            pass  # Ignorar errores en caso de valores inválidos
-
-    def remove_row(self):
-        if self.table:
-            row = self.table.pop()
-            for widget in row:
-                widget.destroy()
-            self.update_scrollregion()
 
     def on_frame_configure(self, event):
-        self.canvas.configure(scrollregion=self.canvas.bbox("all"))
-
-    def update_scrollregion(self):
-        self.canvas.update_idletasks()
         self.canvas.configure(scrollregion=self.canvas.bbox("all"))
 
 tabla = TablaApp(calculos)
@@ -297,13 +258,12 @@ tabla = TablaApp(calculos)
 
 # Apartado del Periodo
 lbl13 = customtkinter.CTkLabel(calculos, text="Periodo", fg_color="Gray", bg_color="Gray", text_color="White", width=75, height=20, font=("Arial", 16,"bold"))
-lbl13.place(relx=0.05, rely=0.52)
+lbl13.place(relx=0.05, rely=0.18)
 
 class PeriodoSelector(ctk.CTkFrame):
     def __init__(self, master=None):
         super().__init__(master, width=540, height=100)
         self.pack_propagate(False)
-        locale.setlocale(locale.LC_TIME, "es_MX")
 
         # Label Desde
         self.label_desde = ctk.CTkLabel(self, text="Desde (Año-Mes-Día):")
@@ -339,66 +299,116 @@ class PeriodoSelector(ctk.CTkFrame):
         
         return desde_año, desde_mes, desde_mes_palabra, desde_dia, hasta_año, hasta_mes, hasta_mes_palabra, hasta_dia
 
+
 periodo_selector = PeriodoSelector(calculos)
-periodo_selector.place(relx=0.05, rely=0.58)  # Ajusta la posición
+periodo_selector.place(relx=0.05, rely=0.22)  # Ajusta la posición
 # Fin del Apartado Periodo
 
 lbl14 = customtkinter.CTkLabel(calculos, text="Anomalia :", fg_color="Gray", bg_color="Gray", text_color="White", width=75, height=20, font=("Arial", 16,"bold"))
-lbl14.place(relx=0.05, rely=0.8)
+lbl14.place(relx=0.05, rely=0.40)
 
 anomalia = customtkinter.CTkEntry(calculos, width=100, height=20, fg_color="White", bg_color="Gray", text_color="Black")
-anomalia.place(relx=0.2, rely=0.8)
+anomalia.place(relx=0.2, rely=0.40)
+
+class PeriodoIncompleto(ctk.CTkFrame):
+    def __init__(self, master=None, periodo_selector=None):
+        super().__init__(master, width=540, height=100)
+        self.pack_propagate(False)
+
+        self.periodo_selector = periodo_selector  # Guardamos la referencia del PeriodoSelector
+
+        # Label Desde
+        self.label_desde = ctk.CTkLabel(self, text="Desde (Año-Mes-Día):")
+        self.label_desde.place(relx=0.2, rely=0.1)
+
+        # Selector de fecha "Desde" (Formato completo)
+        self.date_desde = DateEntry(self, width=10, background='darkred', 
+                                    foreground='white', borderwidth=2, year=2025, 
+                                    date_pattern="yyyy-mm-dd", font=(14))  
+        self.date_desde.place(relx=0.23, rely=0.5)
+
+        # Label Hasta
+        self.label_hasta = ctk.CTkLabel(self, text="Hasta (Año-Mes-Día):")
+        self.label_hasta.place(relx=0.55, rely=0.1)
+
+        # Selector de fecha "Hasta" (Formato completo)
+        self.date_hasta = DateEntry(self, width=10, background='darkred', 
+                                    foreground='white', borderwidth=2, year=2025, 
+                                    date_pattern="yyyy-mm-dd", font=(14))  
+        self.date_hasta.place(relx=0.57, rely=0.5)
+
+    def get_range(self):
+       
+        # Obtener la fecha seleccionada y mostrarla con Año-Mes-Día
+        incompleto_desde_año = datetime.strptime(self.date_desde.get(), "%Y-%m-%d").strftime("%Y")
+        incompleto_desde_mes = datetime.strptime(self.date_desde.get(), "%Y-%m-%d").strftime("%m")
+        incompleto_desde_mes_palabra = datetime.strptime(self.date_desde.get(), "%Y-%m-%d").strftime("%B")
+        incompleto_desde_dia = datetime.strptime(self.date_desde.get(), "%Y-%m-%d").strftime("%d")
+
+        incompleto_hasta_año = datetime.strptime(self.date_hasta.get(), "%Y-%m-%d").strftime("%Y")
+        incompleto_hasta_año_formato = datetime.strptime(self.date_hasta.get(), "%Y-%m-%d").strftime("%Y")[-2:]
+        incompleto_hasta_mes = datetime.strptime(self.date_hasta.get(), "%Y-%m-%d").strftime("%m")
+        incompleto_hasta_mes_palabra = datetime.strptime(self.date_hasta.get(), "%Y-%m-%d").strftime("%B")
+        incompleto_hasta_dia = datetime.strptime(self.date_hasta.get(), "%Y-%m-%d").strftime("%d")
+        
+        return incompleto_desde_año, incompleto_desde_mes, incompleto_desde_mes_palabra, incompleto_desde_dia, incompleto_hasta_año, incompleto_hasta_año_formato, incompleto_hasta_mes, incompleto_hasta_mes_palabra, incompleto_hasta_dia
+
+
+lbl34 = customtkinter.CTkLabel(calculos, text="Periodo Incompleto", fg_color="Gray", bg_color="Gray", text_color="White", width=75, height=20, font=("Arial", 16,"bold"))
+lbl34.place(relx=0.05, rely=0.48)
+
+periodo_selector_incompleto = PeriodoIncompleto(calculos, periodo_selector)
+periodo_selector_incompleto.place(relx=0.05, rely=0.53)  # Ajusta la posición
+# Fin del apartado de Periodo Incompleto
+
+# Apartado para Lectura Inicial y Lectura Final
+lbl35 = customtkinter.CTkLabel(calculos, text="Lectura Inicial", fg_color="Gray", bg_color="Gray", text_color="White", width=75, height=20, font=("Arial", 16,"bold"))
+lbl35.place(relx=0.2, rely=0.73)
+
+LectInic = customtkinter.CTkEntry(calculos, width=100, height=20, fg_color="White", bg_color="Gray", text_color="Black")
+LectInic.place(relx=0.2, rely=0.78)
+
+lbl36 = customtkinter.CTkLabel(calculos, text="Lectura Final", fg_color="Gray", bg_color="Gray", text_color="White", width=75, height=20, font=("Arial", 16,"bold"))
+lbl36.place(relx=0.6, rely=0.73)
+
+LectFin = customtkinter.CTkEntry(calculos, width=100, height=20, fg_color="White", bg_color="Gray", text_color="Black")
+LectFin.place(relx=0.6, rely=0.78)
+# Fin del apartado para Lectura Inicial y Lectura Final
 
 def Calculos():
-    columnas = [0] * 6
-    conteo = [0] * 6  # Para contar cuántos valores válidos hay en cada columna
+    columnas = [0] * 5
+    conteo = [0] * 5  # Para contar cuántos valores válidos hay en cada columna
 
     for row in tabla.table:
         for col, entry in enumerate(row):
             try:
-                if isinstance(entry, ctk.CTkEntry):  # Si es un Entry, obtener el valor con .get()
-                    value = entry.get().strip()
-                elif isinstance(entry, ctk.CTkLabel):  # Si es un Label, obtener el valor con .cget("text")
-                    value = entry.cget("text").strip()
-                else:
-                    continue  # Si no es ninguno de los dos, ignorarlo
-
-                if value:  # Verifica que el campo no esté vacío
-                    columnas[col] += float(value)  # Convertir el valor a float y sumarlo
-                    conteo[col] += 1  # Aumentar conteo de valores válidos
+                value = entry.get().strip()
+                if value:
+                    columnas[col] += float(value)
+                    conteo[col] += 1
             except ValueError:
-                pass  # Ignorar valores no numéricos
+                pass # Ignorar valores no numéricos
 
     # Calcular promedios con manejo de división por cero
-    promedio_voltaje = columnas[2] / conteo[2] if conteo[2] > 0 else 0
-    promedio_hrs_uso = columnas[4] / conteo[4] if conteo[4] > 0 else 0
+    factordeajuste = (1 / columnas[4]) * 100 if columnas[4] > 0 else 0
 
     # Asignar valores a las etiquetas correspondientes
-    corriente.configure(text=f"{columnas[1]:.2f}")
-    voltaje.configure(text=f"{promedio_voltaje:.1f}")
-    potencia.configure(text=f"{columnas[3]:.3f}")
-    HrsUso.configure(text=f"{promedio_hrs_uso:.2f}")
-    cpd.configure(text=f"{columnas[5]:.4f}")
+    corriente.configure(text=f"{columnas[0]:.1f}")
+    voltaje.configure(text=f"{columnas[1]:.1f}")
+    kvareal.configure(text=f"{columnas[2]:.4f}")
+    kvacronometro.configure(text=f"{columnas[3]:.4f}")
+    registracion.configure(text=f"{columnas[4]:.3f}")
+    FactAjus.configure(text=f"{factordeajuste:.4f}")
 
-     # Obtener fechas del `periodo_selector`
-    try:
-        desde_año, desde_mes, desde_mes_palabra, desde_dia, hasta_año, hasta_mes, hasta_mes_palabra, hasta_dia = periodo_selector.get_range()
-        lbl31.configure(text=f"Del {desde_dia} de {desde_mes_palabra} de {desde_año} al {hasta_dia} de {hasta_mes_palabra} de {hasta_año}")
-        desde = str(desde_año)+"-"+str(desde_mes)+"-"+str(desde_dia)
-        hasta = str(hasta_año)+"-"+str(hasta_mes)+"-"+str(hasta_dia)
-    except Exception as e:
-        print(f"Error obteniendo rango de fechas: {e}")
-        desde, hasta = 0, 0  # Valores por defecto en caso de error
-    
     # Limpiar la tabla antes de insertar nuevos datos
     Tabla.delete(*Tabla.get_children())
 
-    # Variables para obtener los calculos
     try:
-        CPD = float(cpd.cget("text"))
+        FA = float(FactAjus.cget("text"))
     except ValueError:
-        CPD = 0 
+        FA = 0  
 
+    # Variables para obtener los cálculos
     suma_dias = 0
     suma_kWh_total = 0
     suma_kWh_total_DF = 0
@@ -409,33 +419,45 @@ def Calculos():
     tarifa = BD.tarifa(RPU, MedSelect)
     lbl25.configure(text=tarifa[0])
 
+    # Mostrar los datos en la tabla
+    rpu1 = RPU
+    rpu2 = RPU
 
-    # Mostrar los datos a la tabla
-    for row in BD.mostrardatos(RPU, MedSelect, desde, hasta):
+    desde_año, desde_mes, desde_mes_palabra, desde_dia, hasta_año, hasta_mes, hasta_mes_palabra, hasta_dia = periodo_selector.get_range()
+    desde1 = f"{desde_año}-{desde_mes}-{desde_dia}"
+    hasta1 = f"{hasta_año}-{hasta_mes}-{hasta_dia}"
+    desde2 = f"{desde_año}-{desde_mes}-{desde_dia}"
+    hasta2 = f"{hasta_año}-{hasta_mes}-{hasta_dia}"
+    
+    for row in BD.mostrardatos(rpu1, desde1, hasta1, rpu2, desde2, hasta2):
         FECHA, DESDE, HASTA, CONSUMO = row
+
+        # Convertir CONSUMO a entero si es necesario
+        if isinstance(CONSUMO, str):
+            CONSUMO = int(CONSUMO)
 
         # Formatear la fecha para mostrar los últimos 2 dígitos del año y los 2 dígitos del mes
         FECHA_FORMATO = FECHA.strftime('%y%m')
 
         # Formatear las fechas desde y hasta para mostrar solo la fecha y no la hora
-        DESDE_FORMATO = datetime.strftime(DESDE, '%Y-%m-%d')  # Formato de fecha de ejemplo, ajusta según tu formato
-        HASTA_FORMATO = datetime.strftime(HASTA, '%Y-%m-%d') 
+        DESDE_FORMATO = DESDE.strftime('%Y-%m-%d')
+        HASTA_FORMATO = HASTA.strftime('%Y-%m-%d')
 
         # Calcular nuevas columnas
         DIAS = (HASTA - DESDE).days
-        CONSUMO_DF = math.ceil(DIAS * CPD)  # Redondear siempre hacia arriba
-        CONSUMO_D = math.ceil(CONSUMO_DF - CONSUMO)  # Redondear siempre hacia arriba
+        CONSUMO_DF = round(FA * CONSUMO)  # Redondear hacia arriba o abajo
+        CONSUMO_D = round(CONSUMO_DF - CONSUMO)  # Redondear hacia arriba o abajo
 
+        if 58 <= DIAS <= 63:
+            # Insertar en la tabla en orden cronológico
+            Tabla.insert("", "end", values=(FECHA_FORMATO, DESDE_FORMATO, HASTA_FORMATO, DIAS, CONSUMO, CONSUMO_DF, CONSUMO_D))
 
-        # Insertar en la tabla
-        Tabla.insert("", "end", values=(FECHA_FORMATO, DESDE_FORMATO, HASTA_FORMATO, DIAS, CONSUMO, CONSUMO_DF, CONSUMO_D))
-
-        # Acumular sumas
-        suma_dias += DIAS
-        suma_kWh_total += CONSUMO
-        suma_kWh_total_DF += CONSUMO_DF
-        suma_kWh_total_D += CONSUMO_D
-
+            # Acumular sumas
+            suma_dias += DIAS
+            suma_kWh_total += CONSUMO
+            suma_kWh_total_DF += CONSUMO_DF
+            suma_kWh_total_D += CONSUMO_D
+    
     totalDias.configure(text=suma_dias)
     totalCFRkwh.configure(text=suma_kWh_total)
     totalDFkwh.configure(text=suma_kWh_total_DF)
@@ -493,16 +515,184 @@ def Calculos():
         "UI18": "OTROS USOS INDEBIDOS"
     }
 
+    # Obtener fechas del periodo_selector
+    items = Tabla.get_children()
+    if not items:
+        messagebox.showerror("Error", "⚠ No hay datos en la tabla para validar.")
+        return False
+
+    # Tomar el primer y último registro de la tabla
+    primer_registro = Tabla.item(items[0], "values")  # Primer registro
+    ultimo_registro = Tabla.item(items[-1], "values")  # Último registro
+
+    desde_año_txt = datetime.strptime(primer_registro[1], "%Y-%m-%d").strftime("%Y")
+    desde_mes_palabra_txt = datetime.strptime(primer_registro[1], "%Y-%m-%d").strftime("%B")
+    desde_dia_txt = datetime.strptime(primer_registro[1], "%Y-%m-%d").strftime("%d")
+
+    hasta_año_txt = datetime.strptime(ultimo_registro[2], "%Y-%m-%d").strftime("%Y")
+    hasta_mes_palabra_txt = datetime.strptime(ultimo_registro[2], "%Y-%m-%d").strftime("%B")
+    hasta_dia_txt = datetime.strptime(ultimo_registro[2], "%Y-%m-%d").strftime("%d")
+
+    lbl31.configure(text=f"Del {desde_dia_txt} de {desde_mes_palabra_txt} de {desde_año_txt} al {hasta_dia_txt} de {hasta_mes_palabra_txt} de {hasta_año_txt}")
 
     codigo_anomalia = anomalia.get()
     nombre_anomalia = Anomalias.get(codigo_anomalia, "Desconocida")  # Si no está en el diccionario, muestra "Desconocida"
     lbl33.configure(text=nombre_anomalia)
 
+    return suma_dias, suma_kWh_total, suma_kWh_total_DF, suma_kWh_total_D, rpu1, desde1, hasta1, rpu2, desde2, hasta2
 
 cargar = ctk.CTkButton(calculos, text="Calcular",fg_color="#2b2b2b", bg_color="Gray", width=100, height=40, font=("Arial", 14, "bold"), hover_color="Green", command=Calculos)
-cargar.place(relx=0.4, rely=0.88)
+cargar.place(relx=0.6, rely=0.40)
 
+def Agregar():
 
+    suma_dias, suma_kWh_total, suma_kWh_total_DF, suma_kWh_total_D, rpu1, desde1, hasta1, rpu2, desde2, hasta2 = Calculos()
+    incompleto_desde_año, incompleto_desde_mes, incompleto_desde_mes_palabra, incompleto_desde_dia, incompleto_hasta_año, incompleto_hasta_año_formato, incompleto_hasta_mes, incompleto_hasta_mes_palabra, incompleto_hasta_dia = periodo_selector_incompleto.get_range()
+    
+    # Primero, validar que las fechas del periodo incompleto sean correctas
+    if not validar_fecha(rpu1, desde1, hasta1, rpu2, desde2, hasta2):
+        return  # Si la validación falla, no continuar con la inserción
+
+    # Colocar fechas de periodo incompleto en la tabla
+    desde_incompleto = f"{incompleto_desde_año}-{incompleto_desde_mes}-{incompleto_desde_dia}"
+    hasta_incompleto = f"{incompleto_hasta_año}-{incompleto_hasta_mes}-{incompleto_hasta_dia}"
+    fecha_incompleto = f"{incompleto_hasta_año_formato}{incompleto_hasta_mes}"
+
+    # Convertir strings a objetos datetime
+    desde_incompleto_formato = datetime.strptime(desde_incompleto, "%Y-%m-%d").date()
+    hasta_incompleto_formato = datetime.strptime(hasta_incompleto, "%Y-%m-%d").date()
+
+    # Calcular la diferencia en días
+    dias_incompletos = (hasta_incompleto_formato - desde_incompleto_formato).days
+
+    try:
+        FA = float(FactAjus.cget("text"))
+        LI = int(LectInic.get())
+        LF = int(LectFin.get())
+    except ValueError:
+        FA = 0
+        LI = 0
+        LF = 0 
+
+    if LI > LF:
+        diferencia = LI - LF
+    else:
+        diferencia = LF - LI
+    
+    consumo_incompleto_DF  = round(diferencia * FA)  # Redondear hacia arriba o abajo
+    consumo_incompleto = 0
+    consumoDF_incompleto = round(consumo_incompleto_DF  - 0)  # Redondear hacia arriba o abajo
+
+    # Convertir las fechas de cadena a objetos datetime.date
+    fecha_incompleto_dt = datetime.strptime(fecha_incompleto, "%y%m").date()
+
+    # Obtener todas las filas actuales en la tabla
+    filas = Tabla.get_children()
+    valores = None  # Inicializar valores como None
+
+   # Verificar si la tabla tiene datos
+    if filas:
+        # Obtener la primera fila para comparar la fecha más antigua
+        primera_fila = filas[0]
+        valores = Tabla.item(primera_fila, "values")
+
+        # Verificar si hay datos válidos antes de acceder a valores[0]
+        if valores and len(valores) > 0:
+            try:
+                fecha_bd_dt = datetime.strptime(valores[0], "%y%m").date()
+            except ValueError:
+                print(f"⚠ Error: No se pudo convertir la fecha '{valores[0]}' a datetime.")
+                return  # Salimos de la función en caso de error
+
+            # Comparar fechas para insertar correctamente
+            if fecha_incompleto_dt < fecha_bd_dt:
+                # Insertar al principio
+                Tabla.insert("", "0", values=(fecha_incompleto, desde_incompleto, hasta_incompleto, dias_incompletos, consumo_incompleto, consumo_incompleto_DF, consumoDF_incompleto))
+            else:
+                # Insertar al final
+                Tabla.insert("", "end", values=(fecha_incompleto, desde_incompleto, hasta_incompleto, dias_incompletos, consumo_incompleto, consumo_incompleto_DF, consumoDF_incompleto))
+        else:
+            print("⚠ Error: No se encontraron valores válidos en la tabla.")
+    else:
+        # Si la tabla está vacía, insertar directamente
+        Tabla.insert("", "end", values=(fecha_incompleto, desde_incompleto, hasta_incompleto, dias_incompletos, consumo_incompleto, consumo_incompleto_DF, consumoDF_incompleto))
+    
+    # 3️⃣ Sumamos los valores del periodo incompleto
+    suma_dias += dias_incompletos
+    suma_kWh_total_DF += consumo_incompleto_DF
+    suma_kWh_total_D += consumoDF_incompleto
+
+    # 4️⃣ Actualizamos las etiquetas
+    totalDias.configure(text=suma_dias)
+    totalDFkwh.configure(text=suma_kWh_total_DF)
+    totalDkwh.configure(text=suma_kWh_total_D)
+    lbl28.configure(text=suma_kWh_total_D)
+
+def insertar_en_orden(tabla, nueva_fecha, valores):
+    """Inserta una fila en orden cronológico dentro de la tabla"""
+    filas = tabla.get_children()
+    posicion = None
+
+    # Convertir nueva fecha a número para comparación
+    nueva_fecha = int(nueva_fecha)
+
+    for fila in filas:
+        fila_valores = tabla.item(fila, "values")
+        fecha_existente = int(fila_valores[0])  # Primera columna es la fecha
+
+        if nueva_fecha < fecha_existente:
+            posicion = fila  # Insertar antes de esta fila
+            break
+
+    if posicion:
+        tabla.insert("", "before", posicion, values=valores)  # 🔹 Insertar en orden
+    else:
+        tabla.insert("", "end", values=valores)  # Si no encontró, insertar al final
+
+def validar_fecha(rpu1, desde1, hasta1, rpu2, desde2, hasta2):
+    # Consultar la base de datos para obtener los registros
+    datos_bd = BD.mostrardatos(rpu1, desde1, hasta1, rpu2, desde2, hasta2)
+    
+    # Verificar si hay datos en la BD
+    if not datos_bd:
+        messagebox.showerror("Error", "⚠ No hay datos en la base de datos para validar.")
+        return False
+
+    # Obtener la fecha más antigua y la más reciente en la BD
+    fechas_desde = [registro[1].date() for registro in datos_bd]  # "DESDE"
+    fechas_hasta = [registro[2].date() for registro in datos_bd]  # "HASTA"
+    
+    fecha_desde_bd = min(fechas_desde)  # Primer registro en la BD
+    fecha_hasta_bd = max(fechas_hasta)  # Último registro en la BD
+
+    # Obtener fechas del periodo incompleto
+    periodo_desde = datetime.strptime(periodo_selector_incompleto.date_desde.get(), "%Y-%m-%d").date()
+    periodo_hasta = datetime.strptime(periodo_selector_incompleto.date_hasta.get(), "%Y-%m-%d").date()
+
+    # Validar si el periodo incompleto se solapa con el periodo principal de la BD
+    if (fecha_desde_bd < periodo_desde < fecha_hasta_bd) or (fecha_desde_bd < periodo_hasta < fecha_hasta_bd):
+        messagebox.showerror("Error", "⚠ Las fechas seleccionadas están dentro del período principal.")
+        return False  # Validación fallida
+
+    incompleto_desde_año, incompleto_desde_mes, incompleto_desde_mes_palabra, incompleto_desde_dia, incompleto_hasta_año, incompleto_hasta_año_formato, incompleto_hasta_mes, incompleto_hasta_mes_palabra, incompleto_hasta_dia = periodo_selector_incompleto.get_range()
+    # Obtener la fecha seleccionada y mostrarla con Año-Mes-Día
+    desde_año = fecha_desde_bd.strftime("%Y")
+    desde_mes_palabra = fecha_desde_bd.strftime("%B")
+    desde_dia = fecha_desde_bd.strftime("%d")
+
+    hasta_año = fecha_hasta_bd.strftime("%Y")
+    hasta_mes_palabra = fecha_hasta_bd.strftime("%B")
+    hasta_dia = fecha_hasta_bd.strftime("%d")
+
+    if periodo_desde > fecha_hasta_bd: 
+        lbl31.configure(text=f"Del {desde_dia} de {desde_mes_palabra} de {desde_año} al {incompleto_hasta_dia} de {incompleto_hasta_mes_palabra} de {incompleto_hasta_año}")
+    elif periodo_hasta < fecha_desde_bd: 
+        lbl31.configure(text=f"Del {incompleto_desde_dia} de {incompleto_desde_mes_palabra} de {incompleto_desde_año} al {hasta_dia} de {hasta_mes_palabra} de {hasta_año}")
+
+    return True  # Validación exitosa
+
+agregar = ctk.CTkButton(calculos, text="Agregar",fg_color="#2b2b2b", bg_color="Gray", width=100, height=40, font=("Arial", 14, "bold"), hover_color="#FFC300", command=Agregar)
+agregar.place(relx=0.4, rely=0.88)
 # Fin de Seccion de Calculos
 
 # Seccion de Tabla de resultados
@@ -514,7 +704,7 @@ estiloTablaTitulo = {
         "bg_color": ("#2fd134"), 
         "text_color": ("White"), 
         "width": 137, 
-        "height": 30, 
+        "height": 38, 
         "font": ("Arial", 16,"bold")
 }
 
@@ -536,35 +726,41 @@ estiloTablaFinal = {
         "font": ("Arial", 16, "bold")
 }
 
-col2 = customtkinter.CTkLabel(ResultadosTabla, text="Corriente", **estiloTablaTitulo)
-col2.grid(row=1, column=2, padx=1, pady=1)
+col1 = customtkinter.CTkLabel(ResultadosTabla, text="Corriente", **estiloTablaTitulo)
+col1.grid(row=1, column=1, padx=1, pady=1)
 
 corriente = customtkinter.CTkLabel(ResultadosTabla, text="0.00", **estiloTablaDatos)
-corriente.grid(row=2, column=2, padx=1, pady=1)
+corriente.grid(row=2, column=1, padx=1, pady=1)
 
-col3 = customtkinter.CTkLabel(ResultadosTabla, text="Voltaje", **estiloTablaTitulo)
-col3.grid(row=1, column=3, padx=1, pady=1)
+col2 = customtkinter.CTkLabel(ResultadosTabla, text="Voltaje", **estiloTablaTitulo)
+col2.grid(row=1, column=2, padx=1, pady=1)
 
 voltaje = customtkinter.CTkLabel(ResultadosTabla, text="0.00", **estiloTablaDatos)
-voltaje.grid(row=2, column=3, padx=1, pady=1)
+voltaje.grid(row=2, column=2, padx=1, pady=1)
 
-col4 = customtkinter.CTkLabel(ResultadosTabla, text="kVA real", **estiloTablaTitulo)
+col3 = customtkinter.CTkLabel(ResultadosTabla, text="kVA real", **estiloTablaTitulo)
+col3.grid(row=1, column=3, padx=1, pady=1)
+
+kvareal = customtkinter.CTkLabel(ResultadosTabla, text="0.00", **estiloTablaDatos)
+kvareal.grid(row=2, column=3, padx=1, pady=1)
+
+col4 = customtkinter.CTkLabel(ResultadosTabla, text="kVA Cronometro", **estiloTablaTitulo)
 col4.grid(row=1, column=4, padx=1, pady=1)
 
-potencia = customtkinter.CTkLabel(ResultadosTabla, text="0.00", **estiloTablaDatos)
-potencia.grid(row=2, column=4, padx=1, pady=1)
+kvacronometro = customtkinter.CTkLabel(ResultadosTabla, text="0.00", **estiloTablaDatos)
+kvacronometro.grid(row=2, column=4, padx=1, pady=1)
 
-col5 = customtkinter.CTkLabel(ResultadosTabla, text="kVA Cronometro", **estiloTablaTitulo)
+col5 = customtkinter.CTkLabel(ResultadosTabla, text="% Registración", **estiloTablaTitulo)
 col5.grid(row=1, column=5, padx=1, pady=1)
 
-HrsUso = customtkinter.CTkLabel(ResultadosTabla, text="0.00", **estiloTablaDatos)
-HrsUso.grid(row=2, column=5, padx=1, pady=1)
+registracion = customtkinter.CTkLabel(ResultadosTabla, text="0.00", **estiloTablaDatos)
+registracion.grid(row=2, column=5, padx=1, pady=1)
 
-col6 = customtkinter.CTkLabel(ResultadosTabla, text="% Registración", **estiloTablaTitulo)
+col6 = customtkinter.CTkLabel(ResultadosTabla, text="FACTOR DE\n AJUSTE", **estiloTablaTitulo)
 col6.grid(row=1, column=6, padx=1, pady=1)
 
-cpd = customtkinter.CTkLabel(ResultadosTabla, text="0.00", **estiloTablaDatos)
-cpd.grid(row=2, column=6, padx=1, pady=1)
+FactAjus = customtkinter.CTkLabel(ResultadosTabla, text="0.00", **estiloTablaDatos)
+FactAjus.grid(row=2, column=6, padx=1, pady=1)
 
 TablaFinal = customtkinter.CTkFrame(ventana, width=850, height=450, fg_color="Black", bg_color="Black")
 TablaFinal.place(relx=0.43, rely=0.4)
