@@ -13,7 +13,7 @@ from Database.Datos import *
 import sys
 
 ventana = customtkinter.CTk()
-ventana.title("Carga Instantanea")
+ventana.title("Historial")
 ventana.config(bg="Lightgray")
 
 # Obtener el tamaño de la pantalla
@@ -29,7 +29,7 @@ locale.setlocale(locale.LC_TIME, "es_MX")
 # sys.argv contiene los argumentos pasados
 RPE = sys.argv[1]  # Primer argumento
 RPU = sys.argv[2]    # Segundo argumento
-# RPU = 272020100257
+# RPU = 272991000151
 # RPE = "JA117"
 # 🔹 Cargar imagen correctamente con PIL
 imagen = Image.open("Imagenes/Logo_CFE.png") 
@@ -208,6 +208,16 @@ else:
 # Llamar a la función inmediatamente al inicio
 ExtraccionCuenta()
 
+# Estilo para titulo de la tabla
+estiloTitulo = { 
+        "fg_color": ("Green"), 
+        "bg_color": ("Green"), 
+        "text_color": ("White"), 
+        "width": 118, 
+        "height": 30, 
+        "font": ("Arial", 16,"bold")
+}
+
 # Seccion de Calculos
 calculos = customtkinter.CTkFrame(ventana, width=600, height=655, fg_color="gray", bg_color="Black")
 calculos.place(relx=0, y=235)
@@ -215,92 +225,150 @@ calculos.place(relx=0, y=235)
 lbl12 = customtkinter.CTkLabel(calculos, text="BASE DE CALCULO PARA REALIZAR AJUSTE", fg_color="Gray", bg_color="Gray", text_color="White", width=75, height=20, font=("Arial", 16,"bold"))
 lbl12.place(relx=0.22, rely=0.02)
 
+class PeriodoCalcular(ctk.CTkFrame):
+    def __init__(self, master=None):
+        super().__init__(master, width=540, height=75)
+        self.pack_propagate(False)
+
+        # Label Desde
+        self.label_desde = ctk.CTkLabel(self, text="Desde (Año-Mes-Día):")
+        self.label_desde.place(relx=0.1, rely=0.1)
+
+        # Selector de fecha "Desde" (Formato completo)
+        self.date_desde = DateEntry(self, width=10, background='orange', 
+                                    foreground='white', borderwidth=2, year=2025, 
+                                    date_pattern="yyyy-mm-dd", font=(14))  
+        self.date_desde.place(relx=0.13, rely=0.5)
+
+        # Label Hasta
+        self.label_hasta = ctk.CTkLabel(self, text="Hasta (Año-Mes-Día):")
+        self.label_hasta.place(relx=0.4, rely=0.1)
+
+        # Selector de fecha "Hasta" (Formato completo)
+        self.date_hasta = DateEntry(self, width=10, background='orange', 
+                                    foreground='white', borderwidth=2, year=2025, 
+                                    date_pattern="yyyy-mm-dd", font=(14))  
+        self.date_hasta.place(relx=0.42, rely=0.5)
+
+        # Botones para agregar y eliminar filas
+        self.aceptar = ctk.CTkButton(self, text="Aceptar", bg_color="#2b2b2b", fg_color="white", hover_color="Orange", text_color="Black", command=PeriodoCalc)
+        self.aceptar.place(relx=0.7, rely=0.28)
+
+    def get_range(self):
+        # Obtener la fecha seleccionada y mostrarla con Año-Mes-Día
+        desde_año_calc = datetime.strptime(self.date_desde.get(), "%Y-%m-%d").strftime("%Y")
+        desde_mes_calc = datetime.strptime(self.date_desde.get(), "%Y-%m-%d").strftime("%m")
+        desde_dia_calc = datetime.strptime(self.date_desde.get(), "%Y-%m-%d").strftime("%d")
+
+        hasta_año_calc = datetime.strptime(self.date_hasta.get(), "%Y-%m-%d").strftime("%Y")
+        hasta_mes_calc = datetime.strptime(self.date_hasta.get(), "%Y-%m-%d").strftime("%m")
+        hasta_dia_calc = datetime.strptime(self.date_hasta.get(), "%Y-%m-%d").strftime("%d")
+        
+        return desde_año_calc, desde_mes_calc, desde_dia_calc, hasta_año_calc, hasta_mes_calc, hasta_dia_calc
+
+def PeriodoCalc():
+    # Limpiar la tabla antes de insertar nuevos datos
+    tabla.Periodo.delete(*tabla.Periodo.get_children())
+
+    rpu = RPU
+
+    desde_año_calc, desde_mes_calc, desde_dia_calc, hasta_año_calc, hasta_mes_calc, hasta_dia_calc = periodo_calcular.get_range()
+    desde = f"{desde_año_calc}-{desde_mes_calc}-{desde_dia_calc}"
+    hasta = f"{hasta_año_calc}-{hasta_mes_calc}-{hasta_dia_calc}"
+
+    total_consumo = 0
+    total_dias = 0
+    total_cpd = 0
+    contador = 0
+
+    for row in BD.periodocalcular(rpu, desde, hasta):
+        PERIODO, DESDE, HASTA, CONSUMO = row
+
+        # Convertir CONSUMO a entero si es necesario
+        if isinstance(CONSUMO, str):
+            CONSUMO = int(CONSUMO)
+
+        # Formatear la fecha para mostrar los últimos 2 dígitos del año y los 2 dígitos del mes
+        FECHA_FORMATO = PERIODO.strftime('%y%m')
+
+        # Calcular nuevas columnas
+        DIAS = (HASTA - DESDE).days
+        CPD = CONSUMO / DIAS
+        CPD_formato = round(CPD, 4)  # CPD con 4 decimales
+
+        if 58 <= DIAS <= 63:
+            # Insertar en la tabla en orden cronológico
+            tabla.Periodo.insert("", "end", values=(FECHA_FORMATO, CONSUMO, DIAS, CPD_formato))
+
+            # Acumular para promedios
+            total_consumo += CONSUMO
+            total_dias += DIAS
+            total_cpd += CPD_formato
+            contador += 1
+
+    # Calcular promedios si hay filas válidas
+    if contador > 0:
+        promedio_consumo = round(total_consumo / contador)
+        promedio_dias = round(total_dias / contador)
+        promedio_cpd = round(total_cpd / contador, 4)
+    else:
+        promedio_consumo = 0
+        promedio_dias = 0
+        promedio_cpd = 0
+        
+    corriente.configure(text=promedio_consumo)
+    dias.configure(text=promedio_dias)
+    cpd.configure(text=promedio_cpd)
+
+periodo_calcular = PeriodoCalcular(calculos)
+periodo_calcular.place(relx=0.05, rely=0.06)  # Ajusta la posición
+# Fin del Apartado Periodo
+
+EncabezadoPeriodo = customtkinter.CTkFrame(calculos, width=600, height=655, fg_color="black", bg_color="black")
+EncabezadoPeriodo.place(relx=0.08, rely=0.19)
+
+Enca1 = customtkinter.CTkLabel(EncabezadoPeriodo, text="Periodo", **estiloTitulo)
+Enca1.grid(row=1, column=1, padx=1, pady=1)
+
+Enca2 = customtkinter.CTkLabel(EncabezadoPeriodo, text="Consumo", **estiloTitulo)
+Enca2.grid(row=1, column=2, padx=1, pady=1)
+
+Enca3 = customtkinter.CTkLabel(EncabezadoPeriodo, text="Dias", **estiloTitulo)
+Enca3.grid(row=1, column=3, padx=1, pady=1)
+
+Enca4 = customtkinter.CTkLabel(EncabezadoPeriodo, text="C.P.D", **estiloTitulo)
+Enca4.grid(row=1, column=4, padx=1, pady=1)
+
 # Tabla
 class TablaApp(ctk.CTkFrame):
     def __init__(self, parent):
-        super().__init__(parent, width=550, height=500, fg_color="#2b2b2b", bg_color="#2b2b2b")
-        self.place(relx=0.02, y=42)
+        super().__init__(parent, width=180, height=50, fg_color="#2b2b2b", bg_color="#2b2b2b")
+        self.place(relx=0.08, rely=0.24)
 
-        self.canvas = ctk.CTkCanvas(self, width=835, height=200, bg="#2b2b2b")
-        self.canvas.pack(side="left", fill="both", expand=True)
+        style = ttk.Style()
+        style.configure("Treeview", font=("Arial", 24))
 
-        self.scrollbar = ctk.CTkScrollbar(self, command=self.canvas.yview, fg_color="#2b2b2b")
-        self.scrollbar.pack(side="right", fill="y")
+        self.Periodo = ttk.Treeview(self, columns=("PERIODO", "CONSUMO", "DIAS", "C.P.D"), show="tree", height=8)
+        self.Periodo.column("#0", width=0, stretch=tk.NO)
+        self.Periodo.column("PERIODO", anchor=CENTER, width=70)
+        self.Periodo.column("CONSUMO", anchor=CENTER, width=70)
+        self.Periodo.column("DIAS", anchor=CENTER, width=70)
+        self.Periodo.column("C.P.D", anchor=CENTER, width=70)
 
-        self.canvas.configure(yscrollcommand=self.scrollbar.set)
+        for col in ("PERIODO", "CONSUMO", "DIAS", "C.P.D"):
+            self.Periodo.column(col, anchor=tk.CENTER, width=180)
+            self.Periodo.heading(col, text="") 
 
-        self.table_frame = ctk.CTkFrame(self.canvas, fg_color="#2b2b2b", bg_color="#2b2b2b")
-        self.canvas.create_window((0, 0), window=self.table_frame, anchor="nw")
+        # Crear Scrollbar
+        scrollbar = ttk.Scrollbar(self, orient="vertical", command=self.Periodo.yview)
+        self.Periodo.configure(yscrollcommand=scrollbar.set)
 
-        self.table = []
-        self.create_table()
-
-        # Botones para agregar y eliminar filas
-        self.add_button = ctk.CTkButton(parent, text="Agregar fila", command=self.add_row, bg_color="Gray", fg_color="Green", hover_color="#2fd134")
-        self.add_button.place(relx=0.2, rely=0.38)
-
-        self.remove_button = ctk.CTkButton(parent, text="Quitar fila", command=self.remove_row, bg_color="Gray", fg_color="Darkred", hover_color="Red")
-        self.remove_button.place(relx=0.5, rely=0.38)
-
-        self.table_frame.bind("<Configure>", self.on_frame_configure)
-
-    def create_table(self):
-        headers = ["Fase", "Corriente", "Voltaje", "Potencia", "Horas/Uso", "C.P.D"]
-        for col, header in enumerate(headers):
-            label = ctk.CTkLabel(self.table_frame, text=header, fg_color="Green", bg_color="Green", text_color="White", width=82, height=25, font=("Arial", 14, "bold"))
-            label.grid(row=0, column=col, padx=5, pady=5)
-
-        for _ in range(1):  # Agrega 1 fila inicial
-            self.add_row()
-
-    def add_row(self):
-        row = []
-        for j in range(6):  
-            if j in [3, 5]:  # Las columnas 3 (Potencia) y 5 (CPD) serán labels en lugar de Entry
-                label = ctk.CTkLabel(self.table_frame, text="0.00", width=82, height=30, fg_color="White", text_color="Black")
-                label.grid(row=len(self.table) + 1, column=j, padx=5, pady=5)
-                row.append(label)
-            else:
-                var = ctk.StringVar()
-                entry = ctk.CTkEntry(self.table_frame, width=82, height=30, fg_color="White", bg_color="White", border_color="White", text_color="Black", textvariable=var)
-                entry.grid(row=len(self.table) + 1, column=j, padx=5, pady=5)
-                var.trace_add("write", lambda *args, row=row: self.update_labels(row))  # Detectar cambios en la fila
-                row.append(entry)
-
-        self.table.append(row)
-        self.update_scrollregion()
-
-    def update_labels(self, row):
-        """Función que calcula Potencia y CPD en base a los valores ingresados en Corriente, Voltaje y Horas/Uso."""
-        try:
-            corriente = float(row[1].get()) if row[1].get() else 0
-            voltaje = float(row[2].get()) if row[2].get() else 0
-            hrs_uso = float(row[4].get()) if row[4].get() else 0
-
-            potencia = ((corriente * voltaje)/1000)*0.9 # Cálculo de Potencia
-            cpd = potencia * hrs_uso  # Cálculo de C.P.D
-
-            row[3].configure(text=f"{potencia:.3f}")  # Actualiza el Label de Potencia
-            row[5].configure(text=f"{cpd:.4f}")  # Actualiza el Label de CPD
-        except ValueError:
-            pass  # Ignorar errores en caso de valores inválidos
-
-    def remove_row(self):
-        if self.table:
-            row = self.table.pop()
-            for widget in row:
-                widget.destroy()
-            self.update_scrollregion()
-
-    def on_frame_configure(self, event):
-        self.canvas.configure(scrollregion=self.canvas.bbox("all"))
-
-    def update_scrollregion(self):
-        self.canvas.update_idletasks()
-        self.canvas.configure(scrollregion=self.canvas.bbox("all"))
+        # Posicionar elementos
+        self.Periodo.pack(side="left", fill="both", expand=True)
+        scrollbar.pack(side="right", fill="y")
 
 tabla = TablaApp(calculos)
-# Fin de la tabla
+# Fin de la tabla de los periodos a calcular
 
 # Apartado del Periodo
 lbl13 = customtkinter.CTkLabel(calculos, text="Periodo", fg_color="Gray", bg_color="Gray", text_color="White", width=75, height=20, font=("Arial", 16,"bold"))
@@ -408,39 +476,19 @@ periodo_selector_incompleto.place(relx=0.05, rely=0.75)  # Ajusta la posición
 # Fin del apartado de Periodo Incompleto
 
 def Calculos():
-    columnas = [0] * 6
-    conteo = [0] * 6  # Para contar cuántos valores válidos hay en cada columna
+    Rpu = RPU
 
-    for row in tabla.table:
-        for col, entry in enumerate(row):
-            try:
-                if isinstance(entry, ctk.CTkEntry):  # Si es un Entry, obtener el valor con .get()
-                    value = entry.get().strip()
-                elif isinstance(entry, ctk.CTkLabel):  # Si es un Label, obtener el valor con .cget("text")
-                    value = entry.cget("text").strip()
-                else:
-                    continue  # Si no es ninguno de los dos, ignorarlo
+    desde_año_calc, desde_mes_calc, desde_dia_calc, hasta_año_calc, hasta_mes_calc, hasta_dia_calc = periodo_calcular.get_range()
+    Desde = f"{desde_año_calc}-{desde_mes_calc}-{desde_dia_calc}"
+    Hasta = f"{hasta_año_calc}-{hasta_mes_calc}-{hasta_dia_calc}"
 
-                if value:  # Verifica que el campo no esté vacío
-                    columnas[col] += float(value)  # Convertir el valor a float y sumarlo
-                    conteo[col] += 1  # Aumentar conteo de valores válidos
-            except ValueError:
-                pass  # Ignorar valores no numéricos
-
-    # Calcular promedios con manejo de división por cero
-    promedio_voltaje = columnas[2] / conteo[2] if conteo[2] > 0 else 0
-    promedio_hrs_uso = columnas[4] / conteo[4] if conteo[4] > 0 else 0
-
-    # Asignar valores a las etiquetas correspondientes
-    corriente.configure(text=f"{columnas[1]:.2f}")
-    voltaje.configure(text=f"{promedio_voltaje:.1f}")
-    potencia.configure(text=f"{columnas[3]:.3f}")
-    HrsUso.configure(text=f"{promedio_hrs_uso:.2f}")
-    cpd.configure(text=f"{columnas[5]:.4f}")
+    # Primero, validar que las fechas del periodo incompleto sean correctas
+    if not validar_periodoCalc(Rpu, Desde, Hasta):
+        return  # Si la validación falla, no continuar con la inserción
 
     # Limpiar la tabla antes de insertar nuevos datos
     Tabla.delete(*Tabla.get_children())
-
+    
     try:
         CPD = float(cpd.cget("text"))
     except ValueError:
@@ -581,7 +629,7 @@ cargar.place(relx=0.6, rely=0.63)
 
 def Agregar():
 
-    suma_dias, suma_kWh_total, suma_kWh_total_DF, suma_kWh_total_D, rpu, desde, hasta = Calculos()
+    suma_dias, suma_kWh_total, suma_kWh_total_DF, suma_kWh_total_D, rpu, desde, hasta= Calculos()
     incompleto_desde_año, incompleto_desde_mes, incompleto_desde_mes_palabra, incompleto_desde_dia, incompleto_hasta_año, incompleto_hasta_año_formato, incompleto_hasta_mes, incompleto_hasta_mes_palabra, incompleto_hasta_dia = periodo_selector_incompleto.get_range()
     
     # Primero, validar que las fechas del periodo incompleto sean correctas
@@ -717,6 +765,32 @@ def validar_fecha(rpu, desde, hasta):
 
     return True  # Validación exitosa
 
+def validar_periodoCalc(rpu, desde, hasta):
+    # Consultar la base de datos para obtener los registros
+    datos_bd = BD.periodocalcular(rpu, desde, hasta)
+    
+    # Verificar si hay datos en la BD
+    if not datos_bd:
+        messagebox.showerror("Error", "⚠ No hay datos en la base de datos para validar.")
+        return False
+
+    # Obtener la fecha más antigua y la más reciente en la BD
+    fechas_hasta = [registro[2].date() for registro in datos_bd]  # "HASTA"
+    
+    fecha_hasta_bd = max(fechas_hasta)  # Último registro en la BD
+    fecha_hasta_txt = fecha_hasta_bd.strftime('%Y-%m-%d')
+
+    # Obtener fechas del periodo incompleto
+    periodo_desde = datetime.strptime(periodo_selector.date_desde.get(), "%Y-%m-%d").date()
+    periodo_hasta = datetime.strptime(periodo_selector.date_hasta.get(), "%Y-%m-%d").date()
+
+    # Validar si el periodo incompleto se solapa con el periodo principal de la BD
+    if (periodo_desde < fecha_hasta_bd) or ( periodo_hasta < fecha_hasta_bd):
+        messagebox.showerror("Error", "⚠ El periodo principal no puede estar dentro del período calculado que termina en "+fecha_hasta_txt+".")
+        return False  # Validación fallida
+    
+    return True
+
 agregar = ctk.CTkButton(calculos, text="Agregar",fg_color="#2b2b2b", bg_color="Gray", width=100, height=40, font=("Arial", 14, "bold"), hover_color="#FFC300", command=Agregar)
 agregar.place(relx=0.4, rely=0.92)
 # Fin de Seccion de Calculos
@@ -729,7 +803,7 @@ estiloTablaTitulo = {
         "fg_color": ("#2fd134"), 
         "bg_color": ("#2fd134"), 
         "text_color": ("White"), 
-        "width": 137, 
+        "width": 207, 
         "height": 30, 
         "font": ("Arial", 16,"bold")
 }
@@ -738,7 +812,7 @@ estiloTablaDatos = {
         "fg_color": ("White"), 
         "bg_color": ("White"), 
         "text_color": ("Black"), 
-        "width": 137, 
+        "width": 207, 
         "height": 30, 
         "font": ("Arial", 16)
 }
@@ -752,41 +826,30 @@ estiloTablaFinal = {
         "font": ("Arial", 16, "bold")
 }
 
-col1 = customtkinter.CTkLabel(ResultadosTabla, text="Fase", **estiloTablaTitulo)
+col1 = customtkinter.CTkLabel(ResultadosTabla, text="Periodo", **estiloTablaTitulo)
 col1.grid(row=1, column=1, padx=1, pady=1)
 
 fase = customtkinter.CTkLabel(ResultadosTabla, text="Total :", **estiloTablaDatos)
 fase.grid(row=2, column=1, padx=1, pady=1)
 
-col2 = customtkinter.CTkLabel(ResultadosTabla, text="Corriente", **estiloTablaTitulo)
+col2 = customtkinter.CTkLabel(ResultadosTabla, text="Consumo", **estiloTablaTitulo)
 col2.grid(row=1, column=2, padx=1, pady=1)
 
 corriente = customtkinter.CTkLabel(ResultadosTabla, text="0.00", **estiloTablaDatos)
 corriente.grid(row=2, column=2, padx=1, pady=1)
 
-col3 = customtkinter.CTkLabel(ResultadosTabla, text="Voltaje", **estiloTablaTitulo)
+col3 = customtkinter.CTkLabel(ResultadosTabla, text="Dias", **estiloTablaTitulo)
 col3.grid(row=1, column=3, padx=1, pady=1)
 
-voltaje = customtkinter.CTkLabel(ResultadosTabla, text="0.00", **estiloTablaDatos)
-voltaje.grid(row=2, column=3, padx=1, pady=1)
+dias = customtkinter.CTkLabel(ResultadosTabla, text="0.00", **estiloTablaDatos)
+dias.grid(row=2, column=3, padx=1, pady=1)
 
-col4 = customtkinter.CTkLabel(ResultadosTabla, text="Potencia", **estiloTablaTitulo)
+col4 = customtkinter.CTkLabel(ResultadosTabla, text="CPD", **estiloTablaTitulo)
 col4.grid(row=1, column=4, padx=1, pady=1)
 
-potencia = customtkinter.CTkLabel(ResultadosTabla, text="0.00", **estiloTablaDatos)
-potencia.grid(row=2, column=4, padx=1, pady=1)
-
-col5 = customtkinter.CTkLabel(ResultadosTabla, text="Horas/Uso", **estiloTablaTitulo)
-col5.grid(row=1, column=5, padx=1, pady=1)
-
-HrsUso = customtkinter.CTkLabel(ResultadosTabla, text="0.00", **estiloTablaDatos)
-HrsUso.grid(row=2, column=5, padx=1, pady=1)
-
-col6 = customtkinter.CTkLabel(ResultadosTabla, text="C.P.D", **estiloTablaTitulo)
-col6.grid(row=1, column=6, padx=1, pady=1)
-
 cpd = customtkinter.CTkLabel(ResultadosTabla, text="0.00", **estiloTablaDatos)
-cpd.grid(row=2, column=6, padx=1, pady=1)
+cpd.grid(row=2, column=4, padx=1, pady=1)
+
 
 TablaFinal = customtkinter.CTkFrame(ventana, width=850, height=450, fg_color="Black", bg_color="Black")
 TablaFinal.place(relx=0.43, rely=0.4)

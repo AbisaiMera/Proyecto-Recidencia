@@ -55,7 +55,7 @@ class BD:
             print(f"Error: {ex}")
             return None
 
-    def mostrardatos(rpu1, desde1, hasta1, rpu2, desde2, hasta2):
+    def mostrardatos(rpu, desde, hasta):
 
         try:
             # Conectar a la base de datos
@@ -63,17 +63,22 @@ class BD:
             with connection.cursor() as cursor:
                 # Consulta SQL mejor estructurada
                 query = """
-                SELECT i4_fecha_ade, i4_periodo_consumo_desde, i4_periodo_consumo_hasta, i4_kwh FROM SCM.CATAL4 left join SCM.CATAL5 as t5 on i4_rpu=i5_rpu
-                WHERE i4_rpu = ? AND i4_tipo_ade = 1 AND t5.i5_zona='13' AND ? <= i4_periodo_consumo_hasta AND ? >= i4_periodo_consumo_desde			
-
-                UNION 
-
-                SELECT i4_fecha_ade, i4_periodo_consumo_desde, i4_periodo_consumo_hasta, i4_kwh FROM SCM.CATAL4_HIST left join SCM.CATAL5 as t5 on i4_rpu=i5_rpu
-                WHERE i4_rpu = ? AND i4_tipo_ade = 1 AND t5.i5_zona='13' AND ? <= i4_periodo_consumo_hasta AND ? >= i4_periodo_consumo_desde
-
-                ORDER BY i4_periodo_consumo_desde;
+                SELECT i4_fecha_ade, i4_periodo_consumo_desde, i4_periodo_consumo_hasta, i4_kwh 
+                FROM (
+                    SELECT i4_fecha_ade, i4_periodo_consumo_desde, i4_periodo_consumo_hasta, i4_kwh, i4_rpu, i4_tipo_ade 
+                    FROM SCM.CATAL4
+                    UNION ALL
+                    SELECT i4_fecha_ade, i4_periodo_consumo_desde, i4_periodo_consumo_hasta, i4_kwh, i4_rpu, i4_tipo_ade 
+                    FROM SCM.CATAL4_HIST
+                ) AS union_data
+                INNER JOIN SCM.CATAL5 AS t5 ON union_data.i4_rpu = t5.i5_rpu AND t5.i5_zona = '13'
+                WHERE union_data.i4_rpu = ?
+                AND union_data.i4_tipo_ade = 1
+                AND ? < union_data.i4_periodo_consumo_hasta
+                AND ? > union_data.i4_periodo_consumo_desde
+                ORDER BY union_data.i4_periodo_consumo_desde;
                 """
-                cursor.execute(query, (rpu1, desde1, hasta1, rpu2, desde2, hasta2))  # Aquí pasamos los parametros correctamente
+                cursor.execute(query, (rpu, desde, hasta))  # Aquí pasamos los parametros correctamente
                 resultado = cursor.fetchall()
         
             # Retornar el resultado
@@ -83,7 +88,6 @@ class BD:
             print(f"Error: {ex}")
             return None
         
-
     def tarifa(RPU, medidor):
 
         try:
@@ -101,6 +105,39 @@ class BD:
                 """
                 cursor.execute(query, (RPU,medidor, ))  # Aquí pasamos los parametros correctamente
                 resultado = cursor.fetchone()
+        
+            # Retornar el resultado
+            return resultado
+
+        except Exception as ex:
+            print(f"Error: {ex}")
+            return None
+
+    def periodocalcular(rpu, desde, hasta):
+
+        try:
+            # Conectar a la base de datos
+            connection = ConexionSQL.conexionBD()
+            with connection.cursor() as cursor:
+                # Consulta SQL mejor estructurada
+                query = """
+                SELECT i4_fecha_ade, i4_periodo_consumo_desde, i4_periodo_consumo_hasta, i4_kwh 
+                FROM (
+                    SELECT i4_fecha_ade, i4_periodo_consumo_desde, i4_periodo_consumo_hasta, i4_kwh, i4_rpu, i4_tipo_ade 
+                    FROM SCM.CATAL4
+                    UNION ALL
+                    SELECT i4_fecha_ade, i4_periodo_consumo_desde, i4_periodo_consumo_hasta, i4_kwh, i4_rpu, i4_tipo_ade 
+                    FROM SCM.CATAL4_HIST
+                ) AS union_data
+                INNER JOIN SCM.CATAL5 AS t5 ON union_data.i4_rpu = t5.i5_rpu AND t5.i5_zona = '13'
+                WHERE union_data.i4_rpu = ?
+                AND union_data.i4_tipo_ade = 1
+                AND ? < union_data.i4_periodo_consumo_hasta
+                AND ? > union_data.i4_periodo_consumo_desde
+                ORDER BY union_data.i4_periodo_consumo_desde;
+                """
+                cursor.execute(query, (rpu, desde, hasta))  # Aquí pasamos los parametros correctamente
+                resultado = cursor.fetchall()
         
             # Retornar el resultado
             return resultado

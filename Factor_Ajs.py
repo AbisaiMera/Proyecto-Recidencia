@@ -11,7 +11,6 @@ import locale
 from Database.Conexion_SQL_Server import *
 from Database.Datos import * 
 import sys
-import math 
 
 ventana = customtkinter.CTk()
 ventana.title("Factor Ajuste")
@@ -28,10 +27,10 @@ ventana.geometry(f"{screen_width}x{screen_height}")
 locale.setlocale(locale.LC_TIME, "es_MX")
 
 # sys.argv contiene los argumentos pasados
-# RPE = sys.argv[1]  # Primer argumento
-# RPU = sys.argv[2]    # Segundo argumento
-RPU = 272680903204
-RPE = "JA117"
+RPE = sys.argv[1]  # Primer argumento
+RPU = sys.argv[2]    # Segundo argumento
+# RPU = 272680903204
+# RPE = "JA117"
 # 🔹 Cargar imagen correctamente con PIL
 imagen = Image.open("Imagenes/Logo_CFE.png") 
 imagen = imagen.resize((400, 125))
@@ -420,16 +419,13 @@ def Calculos():
     lbl25.configure(text=tarifa[0])
 
     # Mostrar los datos en la tabla
-    rpu1 = RPU
-    rpu2 = RPU
+    rpu = RPU
 
     desde_año, desde_mes, desde_mes_palabra, desde_dia, hasta_año, hasta_mes, hasta_mes_palabra, hasta_dia = periodo_selector.get_range()
-    desde1 = f"{desde_año}-{desde_mes}-{desde_dia}"
-    hasta1 = f"{hasta_año}-{hasta_mes}-{hasta_dia}"
-    desde2 = f"{desde_año}-{desde_mes}-{desde_dia}"
-    hasta2 = f"{hasta_año}-{hasta_mes}-{hasta_dia}"
+    desde = f"{desde_año}-{desde_mes}-{desde_dia}"
+    hasta = f"{hasta_año}-{hasta_mes}-{hasta_dia}"
     
-    for row in BD.mostrardatos(rpu1, desde1, hasta1, rpu2, desde2, hasta2):
+    for row in BD.mostrardatos(rpu, desde, hasta):
         FECHA, DESDE, HASTA, CONSUMO = row
 
         # Convertir CONSUMO a entero si es necesario
@@ -539,18 +535,18 @@ def Calculos():
     nombre_anomalia = Anomalias.get(codigo_anomalia, "Desconocida")  # Si no está en el diccionario, muestra "Desconocida"
     lbl33.configure(text=nombre_anomalia)
 
-    return suma_dias, suma_kWh_total, suma_kWh_total_DF, suma_kWh_total_D, rpu1, desde1, hasta1, rpu2, desde2, hasta2
+    return suma_dias, suma_kWh_total, suma_kWh_total_DF, suma_kWh_total_D, rpu, desde, hasta
 
 cargar = ctk.CTkButton(calculos, text="Calcular",fg_color="#2b2b2b", bg_color="Gray", width=100, height=40, font=("Arial", 14, "bold"), hover_color="Green", command=Calculos)
 cargar.place(relx=0.6, rely=0.40)
 
 def Agregar():
 
-    suma_dias, suma_kWh_total, suma_kWh_total_DF, suma_kWh_total_D, rpu1, desde1, hasta1, rpu2, desde2, hasta2 = Calculos()
+    suma_dias, suma_kWh_total, suma_kWh_total_DF, suma_kWh_total_D, rpu, desde, hasta = Calculos()
     incompleto_desde_año, incompleto_desde_mes, incompleto_desde_mes_palabra, incompleto_desde_dia, incompleto_hasta_año, incompleto_hasta_año_formato, incompleto_hasta_mes, incompleto_hasta_mes_palabra, incompleto_hasta_dia = periodo_selector_incompleto.get_range()
     
     # Primero, validar que las fechas del periodo incompleto sean correctas
-    if not validar_fecha(rpu1, desde1, hasta1, rpu2, desde2, hasta2):
+    if not validar_fecha(rpu, desde, hasta):
         return  # Si la validación falla, no continuar con la inserción
 
     # Colocar fechas de periodo incompleto en la tabla
@@ -649,9 +645,9 @@ def insertar_en_orden(tabla, nueva_fecha, valores):
     else:
         tabla.insert("", "end", values=valores)  # Si no encontró, insertar al final
 
-def validar_fecha(rpu1, desde1, hasta1, rpu2, desde2, hasta2):
+def validar_fecha(rpu, desde, hasta):
     # Consultar la base de datos para obtener los registros
-    datos_bd = BD.mostrardatos(rpu1, desde1, hasta1, rpu2, desde2, hasta2)
+    datos_bd = BD.mostrardatos(rpu, desde, hasta)
     
     # Verificar si hay datos en la BD
     if not datos_bd:
@@ -684,9 +680,9 @@ def validar_fecha(rpu1, desde1, hasta1, rpu2, desde2, hasta2):
     hasta_mes_palabra = fecha_hasta_bd.strftime("%B")
     hasta_dia = fecha_hasta_bd.strftime("%d")
 
-    if periodo_desde > fecha_hasta_bd: 
+    if periodo_desde >= fecha_hasta_bd: 
         lbl31.configure(text=f"Del {desde_dia} de {desde_mes_palabra} de {desde_año} al {incompleto_hasta_dia} de {incompleto_hasta_mes_palabra} de {incompleto_hasta_año}")
-    elif periodo_hasta < fecha_desde_bd: 
+    elif periodo_hasta <= fecha_desde_bd: 
         lbl31.configure(text=f"Del {incompleto_desde_dia} de {incompleto_desde_mes_palabra} de {incompleto_desde_año} al {hasta_dia} de {hasta_mes_palabra} de {hasta_año}")
 
     return True  # Validación exitosa

@@ -11,12 +11,12 @@ ventana.title("Principal")
 ventana.config(bg="lightgray")
 
 # 🔹 Cargar imagen correctamente con PIL
-imagen = Image.open("Logo_CFE.png") 
+imagen = Image.open("Imagenes/Logo_CFE.png") 
 imagen = imagen.resize((300, 100))
 imagen_tk = ImageTk.PhotoImage(imagen)
 imagen = imagen.convert("RGBA")
 
-imagen2 = Image.open("Logo_Medicion.jpg") 
+imagen2 = Image.open("Imagenes/Logo_Medicion.jpg") 
 imagen2 = imagen2.resize((150, 150))
 imagen_tk2 = ImageTk.PhotoImage(imagen2)
 imagen2 = imagen2.convert("RGBA")
@@ -27,12 +27,20 @@ def cargar():
     RPU = rpu.get().strip()
     Metodo = seleccion.get()
 
-    if not RPE or not RPU:  # 📌 Verifica si los campos están vacíos
+    if not RPE or not RPU:
         messagebox.showwarning("Advertencia", "Todos los campos son obligatorios")
     else:
-        Metodo = seleccion.get()
-        ventana.destroy()
-        subprocess.run(["python", "Carga_Ins.py", RPE, RPU, Metodo])  # Llama al siguiente programa
+        ventana.destroy()  # Cierra la ventana actual
+
+        # Evalúa el método seleccionado para cargar la ventana apropiada:
+        if Metodo == "Carga Instantanea":
+            subprocess.run(["python", "Carga_Ins.py", RPE, RPU, Metodo])
+        elif Metodo == "Factor Ajuste":
+            subprocess.run(["python", "Factor_Ajs.py", RPE, RPU, Metodo])
+        elif Metodo == "Historial":
+            subprocess.run(["python", "Historial.py", RPE, RPU, Metodo])
+        else:
+            messagebox.showerror("Error", "Opción no reconocida")
 
 
 # Opciones del menú desplegable
