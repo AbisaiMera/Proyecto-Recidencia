@@ -11,6 +11,7 @@ import locale
 from Database.Conexion_SQL_Server import *
 from Database.Datos import * 
 import sys
+import math
 
 ventana = customtkinter.CTk()
 ventana.title("Carga Instantanea")
@@ -27,10 +28,10 @@ ventana.geometry(f"{screen_width}x{screen_height}")
 locale.setlocale(locale.LC_TIME, "es_MX")
 
 # sys.argv contiene los argumentos pasados
-RPE = sys.argv[1]  # Primer argumento
-RPU = sys.argv[2]    # Segundo argumento
-# RPU = 272020100257
-# RPE = "JA117"
+# RPE = sys.argv[1]  # Primer argumento
+# RPU = sys.argv[2]    # Segundo argumento
+RPU = 272020100257
+RPE = "JA117"
 # 🔹 Cargar imagen correctamente con PIL
 imagen = Image.open("Imagenes/Logo_CFE.png") 
 imagen = imagen.resize((400, 125))
@@ -408,6 +409,8 @@ periodo_selector_incompleto.place(relx=0.05, rely=0.75)  # Ajusta la posición
 # Fin del apartado de Periodo Incompleto
 
 def Calculos():
+    Tabla.bind("<Button-1>", toggle_checkbox)
+
     columnas = [0] * 6
     conteo = [0] * 6  # Para contar cuántos valores válidos hay en cada columna
 
@@ -441,11 +444,6 @@ def Calculos():
     # Limpiar la tabla antes de insertar nuevos datos
     Tabla.delete(*Tabla.get_children())
 
-    try:
-        CPD = float(cpd.cget("text"))
-    except ValueError:
-        CPD = 0  
-
     # Variables para obtener los cálculos
     suma_dias = 0
     suma_kWh_total = 0
@@ -458,13 +456,12 @@ def Calculos():
     lbl25.configure(text=tarifa[0])
 
     # Mostrar los datos en la tabla
-    rpu = RPU
 
     desde_año, desde_mes, desde_mes_palabra, desde_dia, hasta_año, hasta_mes, hasta_mes_palabra, hasta_dia = periodo_selector.get_range()
     desde = f"{desde_año}-{desde_mes}-{desde_dia}"
     hasta = f"{hasta_año}-{hasta_mes}-{hasta_dia}"
     
-    for row in BD.mostrardatos(rpu, desde, hasta):
+    for row in BD.mostrardatos(RPU, desde, hasta):
         FECHA, DESDE, HASTA, CONSUMO = row
 
         # Convertir CONSUMO a entero si es necesario
@@ -480,18 +477,9 @@ def Calculos():
 
         # Calcular nuevas columnas
         DIAS = (HASTA - DESDE).days
-        CONSUMO_DF = round(DIAS * CPD)  # Redondear hacia arriba o abajo
-        CONSUMO_D = round(CONSUMO_DF - CONSUMO)  # Redondear hacia arriba o abajo
 
-        if 58 <= DIAS <= 63:
-            # Insertar en la tabla en orden cronológico
-            Tabla.insert("", "end", values=(FECHA_FORMATO, DESDE_FORMATO, HASTA_FORMATO, DIAS, CONSUMO, CONSUMO_DF, CONSUMO_D))
-
-            # Acumular sumas
-            suma_dias += DIAS
-            suma_kWh_total += CONSUMO
-            suma_kWh_total_DF += CONSUMO_DF
-            suma_kWh_total_D += CONSUMO_D
+        # Insertar en la tabla en orden cronológico
+        Tabla.insert("", "end", values=(FECHA_FORMATO, DESDE_FORMATO, HASTA_FORMATO, DIAS, CONSUMO, " ", " ", "✓"))
     
     totalDias.configure(text=suma_dias)
     totalCFRkwh.configure(text=suma_kWh_total)
@@ -550,12 +538,70 @@ def Calculos():
         "UI18": "OTROS USOS INDEBIDOS"
     }
 
+    codigo_anomalia = anomalia.get()
+    nombre_anomalia = Anomalias.get(codigo_anomalia, "Desconocida")  # Si no está en el diccionario, muestra "Desconocida"
+    lbl33.configure(text=nombre_anomalia)
+
+    return suma_dias, suma_kWh_total, suma_kWh_total_DF, suma_kWh_total_D, rpu, desde, hasta
+
+cargar = ctk.CTkButton(calculos, text="Calcular",fg_color="#2b2b2b", bg_color="Gray", width=100, height=40, font=("Arial", 14, "bold"), hover_color="Green", command=Calculos)
+cargar.place(relx=0.6, rely=0.63)
+
+def confirmar_calculo():
+     # Variables acumuladoras
+    suma_dias = 0
+    suma_kWh_total = 0
+    suma_kWh_total_DF = 0
+    suma_kWh_total_D = 0
+
+    Tabla.unbind("<Button-1>")  # Desactiva el click sobre la tabla para evitar más selecciones
+
+    try:
+        CPD = float(cpd.cget("text"))
+    except ValueError:
+        CPD = 0  
+
+    for item in Tabla.get_children():
+        valores = list(Tabla.item(item, "values"))
+
+        if valores[7] == "✓":
+            try:
+                FECHA_FORMATO = valores[0]
+                DESDE = datetime.strptime(valores[1], '%Y-%m-%d')
+                HASTA = datetime.strptime(valores[2], '%Y-%m-%d')
+                DIAS = int(valores[3])
+                CONSUMO = int(valores[4])  # Ya viene en la tabla
+
+                CONSUMO_DF = math.ceil(DIAS * CPD)  # Redondear hacia arriba o abajo
+                CONSUMO_D = math.ceil(CONSUMO_DF - CONSUMO)  # Redondear hacia arriba o abajo
+
+                # Reemplazar valores, manteniendo los anteriores y agregando los nuevos
+                Tabla.item(item, values=(FECHA_FORMATO, DESDE.strftime('%Y-%m-%d'), HASTA.strftime('%Y-%m-%d'), DIAS, CONSUMO, CONSUMO_DF, CONSUMO_D, "✓" ))
+
+                # Acumular en variables
+                suma_dias += DIAS
+                suma_kWh_total += CONSUMO
+                suma_kWh_total_DF += CONSUMO_DF
+                suma_kWh_total_D += CONSUMO_D
+
+            except Exception as e:
+                print(f"Error al calcular fila: {e}")
+        else:
+            Tabla.delete(item)  # Eliminar filas no seleccionadas
+
+    # Actualizar etiquetas con resultados
+    totalDias.configure(text=suma_dias)
+    totalCFRkwh.configure(text=suma_kWh_total)
+    totalDFkwh.configure(text=suma_kWh_total_DF)
+    totalDkwh.configure(text=suma_kWh_total_D)
+    lbl28.configure(text=suma_kWh_total_D)
+
     # Obtener fechas del periodo_selector
     items = Tabla.get_children()
     if not items:
         messagebox.showerror("Error", "⚠ No hay datos en la tabla para validar.")
         return False
-
+    
     # Tomar el primer y último registro de la tabla
     primer_registro = Tabla.item(items[0], "values")  # Primer registro
     ultimo_registro = Tabla.item(items[-1], "values")  # Último registro
@@ -570,28 +616,41 @@ def Calculos():
 
     lbl31.configure(text=f"Del {desde_dia_txt} de {desde_mes_palabra_txt} de {desde_año_txt} al {hasta_dia_txt} de {hasta_mes_palabra_txt} de {hasta_año_txt}")
 
-    codigo_anomalia = anomalia.get()
-    nombre_anomalia = Anomalias.get(codigo_anomalia, "Desconocida")  # Si no está en el diccionario, muestra "Desconocida"
-    lbl33.configure(text=nombre_anomalia)
-
-    return suma_dias, suma_kWh_total, suma_kWh_total_DF, suma_kWh_total_D, rpu, desde, hasta
-
-cargar = ctk.CTkButton(calculos, text="Calcular",fg_color="#2b2b2b", bg_color="Gray", width=100, height=40, font=("Arial", 14, "bold"), hover_color="Green", command=Calculos)
-cargar.place(relx=0.6, rely=0.63)
+# Guardar último período incompleto agregado
+ultimo_periodo_incompleto = {"desde": None, "hasta": None}
+ultimo_resumen_incompleto = {"dias": 0, "df": 0, "d": 0}
 
 def Agregar():
+    # Obtener fechas desde el periodo_selector_incompleto (o el que estés usando)
+    global ultimo_periodo_incompleto
 
-    suma_dias, suma_kWh_total, suma_kWh_total_DF, suma_kWh_total_D, rpu, desde, hasta = Calculos()
     incompleto_desde_año, incompleto_desde_mes, incompleto_desde_mes_palabra, incompleto_desde_dia, incompleto_hasta_año, incompleto_hasta_año_formato, incompleto_hasta_mes, incompleto_hasta_mes_palabra, incompleto_hasta_dia = periodo_selector_incompleto.get_range()
-    
-    # Primero, validar que las fechas del periodo incompleto sean correctas
-    if not validar_fecha(rpu, desde, hasta):
-        return  # Si la validación falla, no continuar con la inserción
 
     # Colocar fechas de periodo incompleto en la tabla
     desde_incompleto = f"{incompleto_desde_año}-{incompleto_desde_mes}-{incompleto_desde_dia}"
     hasta_incompleto = f"{incompleto_hasta_año}-{incompleto_hasta_mes}-{incompleto_hasta_dia}"
     fecha_incompleto = f"{incompleto_hasta_año_formato}{incompleto_hasta_mes}"
+
+     # Comparar con último período guardado
+    if (ultimo_periodo_incompleto["desde"] == desde_incompleto and
+        ultimo_periodo_incompleto["hasta"] == hasta_incompleto):
+        messagebox.showinfo("Sin cambios","Mismo periodo incompleto agregado, no se ha modificado los datos de la tabla.")
+        return  # Salir sin hacer nada
+
+         # Eliminar el periodo incompleto actual de la tabla, si existe
+    for item_id in Tabla.get_children():
+        valores = Tabla.item(item_id)["values"]
+        if valores and valores[7] == " ":
+            Tabla.delete(item_id)
+            break  # Solo uno permitido
+
+    # Guardar nuevo período como último
+    ultimo_periodo_incompleto["desde"] = desde_incompleto
+    ultimo_periodo_incompleto["hasta"] = hasta_incompleto
+
+        # Primero, validar que las fechas del periodo incompleto sean correctas
+    if not validar_fecha(Tabla, desde_incompleto, hasta_incompleto):
+        return  # Si la validación falla, no continuar con la inserción
 
     # Convertir strings a objetos datetime
     desde_incompleto_formato = datetime.strptime(desde_incompleto, "%Y-%m-%d").date()
@@ -605,54 +664,47 @@ def Agregar():
     except ValueError:
         CPD = 0  
 
-    consumo_incompleto_DF  = round(dias_incompletos * CPD)  # Redondear hacia arriba o abajo
+    consumo_incompleto_DF  = math.ceil(dias_incompletos * CPD)  # Redondear hacia arriba o abajo
     consumo_incompleto = 0
-    consumoDF_incompleto = round(consumo_incompleto_DF  - 0)  # Redondear hacia arriba o abajo
+    consumoDF_incompleto = math.ceil(consumo_incompleto_DF  - 0)  # Redondear hacia arriba o abajo
 
-    # Convertir las fechas de cadena a objetos datetime.date
-    fecha_incompleto_dt = datetime.strptime(fecha_incompleto, "%y%m").date()
+    # Insertar en la tabla como una fila extra
+    insertar_en_orden(
+        Tabla, fecha_incompleto, (fecha_incompleto, desde_incompleto, hasta_incompleto, dias_incompletos, 0, consumo_incompleto_DF, consumoDF_incompleto, " ")
+    )
 
-    # Obtener todas las filas actuales en la tabla
-    filas = Tabla.get_children()
-    valores = None  # Inicializar valores como None
+    fechas = []
+    for item_id in Tabla.get_children():
+        valores = Tabla.item(item_id)["values"]
+        if len(valores) >= 3:
+            f_inicio = datetime.strptime(valores[1], "%Y-%m-%d").date()
+            f_fin = datetime.strptime(valores[2], "%Y-%m-%d").date()
+            fechas.extend([f_inicio, f_fin])
 
-   # Verificar si la tabla tiene datos
-    if filas:
-        # Obtener la primera fila para comparar la fecha más antigua
-        primera_fila = filas[0]
-        valores = Tabla.item(primera_fila, "values")
+    if fechas:
+        fecha_inicio_tabla = min(fechas)
+        fecha_fin_tabla = max(fechas)
 
-        # Verificar si hay datos válidos antes de acceder a valores[0]
-        if valores and len(valores) > 0:
-            try:
-                fecha_bd_dt = datetime.strptime(valores[0], "%y%m").date()
-            except ValueError:
-                print(f"⚠ Error: No se pudo convertir la fecha '{valores[0]}' a datetime.")
-                return  # Salimos de la función en caso de error
+        lbl31.configure(
+            text=f"Del {fecha_inicio_tabla.strftime('%d')} de {fecha_inicio_tabla.strftime('%B')} de {fecha_inicio_tabla.year} "
+                 f"al {fecha_fin_tabla.strftime('%d')} de {fecha_fin_tabla.strftime('%B')} de {fecha_fin_tabla.year}"
+    )
 
-            # Comparar fechas para insertar correctamente
-            if fecha_incompleto_dt < fecha_bd_dt:
-                # Insertar al principio
-                Tabla.insert("", "0", values=(fecha_incompleto, desde_incompleto, hasta_incompleto, dias_incompletos, consumo_incompleto, consumo_incompleto_DF, consumoDF_incompleto))
-            else:
-                # Insertar al final
-                Tabla.insert("", "end", values=(fecha_incompleto, desde_incompleto, hasta_incompleto, dias_incompletos, consumo_incompleto, consumo_incompleto_DF, consumoDF_incompleto))
-        else:
-            print("⚠ Error: No se encontraron valores válidos en la tabla.")
-    else:
-        # Si la tabla está vacía, insertar directamente
-        Tabla.insert("", "end", values=(fecha_incompleto, desde_incompleto, hasta_incompleto, dias_incompletos, consumo_incompleto, consumo_incompleto_DF, consumoDF_incompleto))
-    
-    # 3️⃣ Sumamos los valores del periodo incompleto
-    suma_dias += dias_incompletos
-    suma_kWh_total_DF += consumo_incompleto_DF
-    suma_kWh_total_D += consumoDF_incompleto
+    # Acumular los valores nuevos
+    # Restar el anterior si existía
+    suma_actual_dias = int(totalDias.cget("text")) - ultimo_resumen_incompleto["dias"]
+    suma_actual_df = int(totalDFkwh.cget("text")) - ultimo_resumen_incompleto["df"]
+    suma_actual_d = int(totalDkwh.cget("text")) - ultimo_resumen_incompleto["d"]
 
-    # 4️⃣ Actualizamos las etiquetas
-    totalDias.configure(text=suma_dias)
-    totalDFkwh.configure(text=suma_kWh_total_DF)
-    totalDkwh.configure(text=suma_kWh_total_D)
-    lbl28.configure(text=suma_kWh_total_D)
+    totalDias.configure(text=suma_actual_dias + dias_incompletos)
+    totalDFkwh.configure(text=suma_actual_df + consumo_incompleto_DF)
+    totalDkwh.configure(text=suma_actual_d + consumoDF_incompleto)
+    lbl28.configure(text=suma_actual_d + consumoDF_incompleto)
+
+    # Guardar este nuevo resumen para la próxima vez
+    ultimo_resumen_incompleto["dias"] = dias_incompletos
+    ultimo_resumen_incompleto["df"] = consumo_incompleto_DF
+    ultimo_resumen_incompleto["d"] = consumoDF_incompleto
 
 def insertar_en_orden(tabla, nueva_fecha, valores):
     """Inserta una fila en orden cronológico dentro de la tabla"""
@@ -671,51 +723,51 @@ def insertar_en_orden(tabla, nueva_fecha, valores):
             break
 
     if posicion:
-        tabla.insert("", "before", posicion, values=valores)  # 🔹 Insertar en orden
+        tabla.insert(parent=tabla.parent(posicion), index=tabla.index(posicion), values=valores) # 🔹 Insertar en orden
     else:
         tabla.insert("", "end", values=valores)  # Si no encontró, insertar al final
 
-def validar_fecha(rpu, desde, hasta):
-    # Consultar la base de datos para obtener los registros
-    datos_bd = BD.mostrardatos(rpu, desde, hasta)
-    
-    # Verificar si hay datos en la BD
-    if not datos_bd:
-        messagebox.showerror("Error", "⚠ No hay datos en la base de datos para validar.")
-        return False
+def validar_fecha(treeview, periodo_desde, periodo_hasta):
+    # Asegurar que las fechas sean objetos date
+    if isinstance(periodo_desde, str):
+        periodo_desde = datetime.strptime(periodo_desde, "%Y-%m-%d").date()
+    if isinstance(periodo_hasta, str):
+        periodo_hasta = datetime.strptime(periodo_hasta, "%Y-%m-%d").date()
 
-    # Obtener la fecha más antigua y la más reciente en la BD
-    fechas_desde = [registro[1].date() for registro in datos_bd]  # "DESDE"
-    fechas_hasta = [registro[2].date() for registro in datos_bd]  # "HASTA"
-    
-    fecha_desde_bd = min(fechas_desde)  # Primer registro en la BD
-    fecha_hasta_bd = max(fechas_hasta)  # Último registro en la BD
+    for item_id in treeview.get_children():
+        item = treeview.item(item_id)
+        valores = item["values"]
 
-    # Obtener fechas del periodo incompleto
-    periodo_desde = datetime.strptime(periodo_selector_incompleto.date_desde.get(), "%Y-%m-%d").date()
-    periodo_hasta = datetime.strptime(periodo_selector_incompleto.date_hasta.get(), "%Y-%m-%d").date()
+        if len(valores) >= 3:
+            try:
+                fecha_existente_desde = datetime.strptime(valores[1], "%Y-%m-%d").date()
+                fecha_existente_hasta = datetime.strptime(valores[2], "%Y-%m-%d").date()
+            except Exception as e:
+                print(f"Error procesando fechas de fila: {valores}, error: {e}")
+                continue
 
-    # Validar si el periodo incompleto se solapa con el periodo principal de la BD
-    if (fecha_desde_bd < periodo_desde < fecha_hasta_bd) or (fecha_desde_bd < periodo_hasta < fecha_hasta_bd):
-        messagebox.showerror("Error", "⚠ Las fechas seleccionadas están dentro del período principal.")
-        return False  # Validación fallida
+            # Validaciones de solapamiento
+            if (
+                fecha_existente_desde < periodo_desde < fecha_existente_hasta or
+                fecha_existente_desde < periodo_hasta < fecha_existente_hasta or
+                periodo_desde < fecha_existente_desde and periodo_hasta > fecha_existente_hasta
+            ):
+                messagebox.showerror(
+                    "Error",
+                    f"⚠ Las fechas seleccionadas ({periodo_desde} a {periodo_hasta}) se solapan con un período existente ({fecha_existente_desde} a {fecha_existente_hasta})."
+                )
+                return False
 
-    incompleto_desde_año, incompleto_desde_mes, incompleto_desde_mes_palabra, incompleto_desde_dia, incompleto_hasta_año, incompleto_hasta_año_formato, incompleto_hasta_mes, incompleto_hasta_mes_palabra, incompleto_hasta_dia = periodo_selector_incompleto.get_range()
-    # Obtener la fecha seleccionada y mostrarla con Año-Mes-Día
-    desde_año = fecha_desde_bd.strftime("%Y")
-    desde_mes_palabra = fecha_desde_bd.strftime("%B")
-    desde_dia = fecha_desde_bd.strftime("%d")
+    return True  # Si pasó por todos sin solapamiento
 
-    hasta_año = fecha_hasta_bd.strftime("%Y")
-    hasta_mes_palabra = fecha_hasta_bd.strftime("%B")
-    hasta_dia = fecha_hasta_bd.strftime("%d")
+def toggle_checkbox(event):
+    item_id = Tabla.identify_row(event.y)
+    column = Tabla.identify_column(event.x)
 
-    if periodo_desde >= fecha_hasta_bd: 
-        lbl31.configure(text=f"Del {desde_dia} de {desde_mes_palabra} de {desde_año} al {incompleto_hasta_dia} de {incompleto_hasta_mes_palabra} de {incompleto_hasta_año}")
-    elif periodo_hasta <= fecha_desde_bd: 
-        lbl31.configure(text=f"Del {incompleto_desde_dia} de {incompleto_desde_mes_palabra} de {incompleto_desde_año} al {hasta_dia} de {hasta_mes_palabra} de {hasta_año}")
-
-    return True  # Validación exitosa
+    if column == "#8" and item_id:  # "#8" es la columna SELECCION (índice 1-based)
+        valores = list(Tabla.item(item_id, "values"))
+        valores[7] = "✓" if valores[7] != "✓" else "✗"
+        Tabla.item(item_id, values=valores)
 
 agregar = ctk.CTkButton(calculos, text="Agregar",fg_color="#2b2b2b", bg_color="Gray", width=100, height=40, font=("Arial", 14, "bold"), hover_color="#FFC300", command=Agregar)
 agregar.place(relx=0.4, rely=0.92)
@@ -789,7 +841,7 @@ cpd = customtkinter.CTkLabel(ResultadosTabla, text="0.00", **estiloTablaDatos)
 cpd.grid(row=2, column=6, padx=1, pady=1)
 
 TablaFinal = customtkinter.CTkFrame(ventana, width=850, height=450, fg_color="Black", bg_color="Black")
-TablaFinal.place(relx=0.43, rely=0.4)
+TablaFinal.place(relx=0.395, rely=0.4)
 
 lbl15 = customtkinter.CTkLabel(TablaFinal, text="Consumos facturados\n reflejados en SICOM", width=591, height=40, fg_color="#fff301", bg_color="#fff301", text_color="Black", font=("Arial", 16,"bold"))
 lbl15.grid(row=1, column=1, columnspan=4, padx=1, pady=1)
@@ -799,6 +851,9 @@ lbl16.grid(row=1, column=5, padx=1, pady=1)
 
 lbl17 = customtkinter.CTkLabel(TablaFinal, text="Diferencia", width=120, height=40, fg_color="#ff0000", bg_color="#ff0000", text_color="Black", font=("Arial", 16,"bold"))
 lbl17.grid(row=1, column=6, padx=1, pady=1)
+
+lbl35 = customtkinter.CTkLabel(TablaFinal, text="Seleccion", width=120, height=40, fg_color="Gray", bg_color="Gray", text_color="Black", font=("Arial", 16,"bold"))
+lbl35.grid(row=1, column=7, padx=1, pady=1)
 
 lbl18 = customtkinter.CTkLabel(TablaFinal, text="Fecha", **estiloTablaFinal)
 lbl18.grid(row=2, column=1, padx=1, pady=1)
@@ -818,26 +873,32 @@ lbl22.grid(row=2, column=5, padx=1, pady=1)
 lbl23 = customtkinter.CTkLabel(TablaFinal, text="kWh Total",  **estiloTablaFinal)
 lbl23.grid(row=2, column=6, padx=1, pady=1)
 
-DatosBD = customtkinter.CTkFrame(ventana, width=850, height=265, fg_color="Black", bg_color="Black")
+lbl36 = customtkinter.CTkLabel(TablaFinal, text="✓",  **estiloTablaFinal)
+lbl36.grid(row=2, column=7, padx=1, pady=1)
+
+DatosBD = customtkinter.CTkFrame(ventana,  width=983, height=265, fg_color="Black", bg_color="Black")
 DatosBD.pack_propagate(False)
-DatosBD.place(relx=0.43, rely=0.5)
+DatosBD.place(relx=0.395, rely=0.5)
 
 # Apartado para los datos de la BD
 
 style = ttk.Style()
-style.configure("Treeview", font=("Arial", 16))
+style.configure("Resultados.Treeview", font=("Arial", 20), rowheight=40)
 
-Tabla = ttk.Treeview(DatosBD, columns=("FECHA", "DESDE", "HASTA", "DIAS", "CONSUMO", "CONSUMNO_DF", "CONSUMO_D"), show="tree")
+Tabla = ttk.Treeview(DatosBD, style="Resultados.Treeview", columns=("FECHA", "DESDE", "HASTA", "DIAS", "CONSUMO", "CONSUMNO_DF", "CONSUMO_D", "SELECCION"), show="tree")
 Tabla.column("#0", width=0, stretch=tk.NO)
-Tabla.column("FECHA", anchor=CENTER, width=153)
-Tabla.column("DESDE", anchor=CENTER, width=76)
-Tabla.column("HASTA", anchor=CENTER, width=76)
-Tabla.column("DIAS", anchor=CENTER, width=154)
-Tabla.column("CONSUMO", anchor=CENTER, width=154)
-Tabla.column("CONSUMNO_DF", anchor=CENTER, width=154)
-Tabla.column("CONSUMO_D", anchor=CENTER, width=154)
+Tabla.column("FECHA", anchor=CENTER, width=25)
+Tabla.column("DESDE", anchor=CENTER, width=8)
+Tabla.column("HASTA", anchor=CENTER, width=8)
+Tabla.column("DIAS", anchor=CENTER, width=25)
+Tabla.column("CONSUMO", anchor=CENTER, width=25)
+Tabla.column("CONSUMNO_DF", anchor=CENTER, width=25)
+Tabla.column("CONSUMO_D", anchor=CENTER, width=25)
+Tabla.column("SELECCION", anchor=CENTER, width=25)
 
-for col in ("FECHA", "DESDE", "HASTA", "DIAS", "CONSUMO", "CONSUMNO_DF", "CONSUMO_D"):
+Tabla.bind("<Button-1>", toggle_checkbox)
+
+for col in ("FECHA", "DESDE", "HASTA", "DIAS", "CONSUMO", "CONSUMNO_DF", "CONSUMO_D", "SELECCION"):
     Tabla.column(col, anchor=tk.CENTER, width=115)
     Tabla.heading(col, text="") 
 
@@ -850,7 +911,7 @@ Tabla.pack(side="left", fill="both", expand=True)
 scrollbar.pack(side="right", fill="y")
 
 TotalBD = customtkinter.CTkFrame(ventana, width=850, height=40, fg_color="Black", bg_color="Black")
-TotalBD.place(relx=0.43, rely=0.8)
+TotalBD.place(relx=0.395, rely=0.8)
 
 lblTotal = customtkinter.CTkLabel(TotalBD, text="Total :",  width=344, height=40, fg_color="White", bg_color="White", text_color="Black", font=("Arial", 16,"bold"))
 lblTotal.grid(row=1, column=1, padx=1, pady=1)
@@ -866,6 +927,9 @@ totalDFkwh.grid(row=1, column=5, padx=1, pady=1)
 
 totalDkwh = customtkinter.CTkLabel(TotalBD, text="00.0",  **estiloTablaFinal)
 totalDkwh.grid(row=1, column=6, padx=1, pady=1)
+
+btnConfirmar = ctk.CTkButton(TotalBD, text="Confirmar",fg_color="White", bg_color="Gray", width=120, height=40, text_color="Black", font=("Arial", 14, "bold"), hover_color="Gray", command=confirmar_calculo)
+btnConfirmar.grid(row=1, column=7, padx=1, pady=1)
 
 DatosFinales = { 
         "fg_color": ("Lightgray"), 

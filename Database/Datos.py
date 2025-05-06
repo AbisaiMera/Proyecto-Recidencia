@@ -73,7 +73,6 @@ class BD:
                 ) AS union_data
                 INNER JOIN SCM.CATAL5 AS t5 ON union_data.i4_rpu = t5.i5_rpu AND t5.i5_zona = '13'
                 WHERE union_data.i4_rpu = ?
-                AND union_data.i4_tipo_ade = 1
                 AND ? < union_data.i4_periodo_consumo_hasta
                 AND ? > union_data.i4_periodo_consumo_desde
                 ORDER BY union_data.i4_periodo_consumo_desde;
