@@ -11,6 +11,9 @@ import locale
 from Database.Conexion_SQL_Server import *
 from Database.Datos import * 
 import sys
+from Generacion_Reportes import generar_reporte_pdf
+from openpyxl import load_workbook
+from tkinter import filedialog
 
 ventana = customtkinter.CTk()
 ventana.title("Factor Ajuste")
@@ -27,10 +30,10 @@ ventana.geometry(f"{screen_width}x{screen_height}")
 locale.setlocale(locale.LC_TIME, "es_MX")
 
 # sys.argv contiene los argumentos pasados
-# RPE = sys.argv[1]  # Primer argumento
-# RPU = sys.argv[2]    # Segundo argumento
-RPU = 272680903204
-RPE = "JA117"
+RPE = sys.argv[1]  # Primer argumento
+RPU = sys.argv[2]    # Segundo argumento
+# RPU = 272680903204
+# RPE = "JA117"
 # 🔹 Cargar imagen correctamente con PIL
 imagen = Image.open("Imagenes/Logo_CFE.png") 
 imagen = imagen.resize((400, 125))
@@ -126,7 +129,7 @@ rpu.place(relx=0.1, rely=0.4)
 lbl4 = customtkinter.CTkLabel(datos, text="Cuenta :", **estiloDatos)
 lbl4.place(relx=0.25, rely=0.4)
 
-cuenta = customtkinter.CTkLabel(datos, text="23DV13B162333130", **estiloDatos)
+cuenta = customtkinter.CTkLabel(datos, text="----", **estiloDatos)
 cuenta.place(relx=0.3, rely=0.4)
 
 lbl5 = customtkinter.CTkLabel(datos, text="Nombre :", **estiloDatos)
@@ -743,6 +746,133 @@ agregar.place(relx=0.4, rely=0.88)
 ResultadosTabla = customtkinter.CTkFrame(ventana, width=850, height=100, fg_color="Black", bg_color="Black")
 ResultadosTabla.place(relx=0.43, rely=0.3)
 
+def abrir_ventana_reporte():
+    ventana_reporte = customtkinter.CTkToplevel()
+    ventana_reporte.title("Editor de Reporte")
+    ventana_reporte.geometry("800x1000")
+
+    titulo = customtkinter.CTkLabel(ventana_reporte, text="Vista Previa del Reporte", font=("Arial", 20, "bold"))
+    titulo.pack(pady=10)
+
+    campos = {
+        "Descripción": None,
+        "Método": None,
+        "Persona": None,
+        "Situación": None
+    }
+
+    for i, campo in enumerate(campos.keys()):
+        label = customtkinter.CTkLabel(ventana_reporte, text=campo + ":", anchor="w")
+        label.place(relx=0.05, rely=0.15 + i * 0.18)
+        textbox = customtkinter.CTkTextbox(ventana_reporte, width=500, height=60)
+        textbox.place(relx=0.05, rely=0.20 + i * 0.18)
+        campos[campo] = textbox
+
+    def confirmar_generacion():
+        descripcion = campos["Descripción"].get("1.0", "end").strip()
+        metodo = campos["Método"].get("1.0", "end").strip()
+        persona = campos["Persona"].get("1.0", "end").strip()
+        situacion = campos["Situación"].get("1.0", "end").strip()
+
+        # Recolectar datos automáticos desde la GUI principal
+        nombre = Nomrpu.cget("text")
+        direccion = "Dirección de prueba"  # Puedes cambiarlo si es dinámico
+        medidor = selected_medidor.get()
+        tarifa = lbl25.cget("text")
+        rpu = RPU
+        anomalia = lbl33.cget("text")
+        periodo_ajuste = lbl31.cget("text")
+        rpe = RPE
+        nomrpe = Nomrpe.cget("text")
+
+        # Simular los datos de tabla o usarlos dinámicamente si los tienes
+        cpd_data = [
+            ["*1905", "531", "60", "8.8500"],
+            ["*1907", "564", "61", "9.2459"],
+            ["*1909", "537", "61", "8.8033"],
+        ]
+
+        generar_reporte_pdf(
+            nombre, direccion, medidor, tarifa, rpu, anomalia,
+            descripcion, metodo, periodo_ajuste, persona, situacion, cpd_data, rpe, nomrpe
+        )
+
+        ventana_reporte.destroy()
+        messagebox.showinfo("Reporte generado", "📄 El PDF se ha guardado exitosamente")
+
+    boton_generar = customtkinter.CTkButton(ventana_reporte, text="Generar PDF", command=confirmar_generacion)
+    boton_generar.place(relx=0.35, rely=0.9)
+
+def exportar_a_excel():
+    try:
+        # Seleccionar plantilla
+        plantilla_path = "3937-272680903204 Factor Ajuste.xlsx"  # Asegúrate que está en el mismo directorio o usa path absoluto
+        wb = load_workbook(plantilla_path)
+        ws = wb["X F. A."]
+
+        # Datos principales
+        nombre = Nomrpu.cget("text")
+        agen = agencia.cget("text")
+        medidor = selected_medidor.get()
+        tarifa = lbl25.cget("text")
+        rpu = RPU
+        anomalia = lbl33.cget("text")
+        periodo_ajuste = lbl31.cget("text")
+        nomrpe = Nomrpe.cget("text")
+        khwTotales = lbl28.cget("text")
+        corr = corriente.cget("text")
+        volt = voltaje.cget("text")
+        kvre = kvareal.cget("text")
+        kvaCro = kvacronometro.cget("text")
+        reg = registracion.cget("text")
+
+        # Insertar en celdas específicas (ajusta si tu archivo es diferente)
+        ws["F10"] = nombre
+        ws["C9"] = rpu
+        ws["F60"] = tarifa
+        ws["F9"] = medidor
+        ws["D68"] = anomalia
+        ws["F64"] = periodo_ajuste
+        ws["K5"] = datetime.now().strftime("%d/%m/%Y")
+        ws["J10"] = agen
+        ws["E76"] = nomrpe
+        ws["F62"] = khwTotales
+        ws["E16"] = corr
+        ws["F16"] = volt
+        ws["G16"] = kvre
+        ws["H16"] = kvaCro
+        ws["I16"] = reg
+
+        # Insertar tabla desde Treeview "Tabla"
+        fila_inicio = 10  # Ajusta si en tu Excel es otra fila
+        for i, item_id in enumerate(Tabla.get_children()):
+            valores = Tabla.item(item_id)["values"]
+            if len(valores) >= 4:
+                ws.cell(row=fila_inicio + i, column=1).value = valores[0]  # Periodo
+                ws.cell(row=fila_inicio + i, column=2).value = valores[5]  # kWh total (columna 6)
+                ws.cell(row=fila_inicio + i, column=3).value = valores[3]  # Días (columna 4)
+                # CPD calculado si lo necesitas:
+                try:
+                    cpd = float(valores[5]) / int(valores[3])
+                    ws.cell(row=fila_inicio + i, column=4).value = round(cpd, 4)
+                except:
+                    ws.cell(row=fila_inicio + i, column=4).value = ""
+
+        # Guardar como nuevo archivo
+        ruta_salida = filedialog.asksaveasfilename(
+            defaultextension=".xlsx",
+            filetypes=[("Excel files", "*.xlsx")],
+            title="Guardar reporte de Factor de Ajuste"
+        )
+        if ruta_salida:
+            wb.save(ruta_salida)
+
+        messagebox.showinfo("Exportación Exitosa", "📄 El archivo Excel se ha guardado correctamente como 'reporte_ajuste.xlsx'")
+
+    except Exception as e:
+        from tkinter import messagebox
+        messagebox.showerror("Error", f"Ocurrió un error al generar el Excel:\n{e}")
+
 estiloTablaTitulo = { 
         "fg_color": ("#2fd134"), 
         "bg_color": ("#2fd134"), 
@@ -935,5 +1065,11 @@ lbl32.place(relx=0.5, rely=0.94)
 
 lbl33 = customtkinter.CTkLabel(ventana, text="-------------------", **DatosFinales)
 lbl33.place(relx=0.59, rely=0.94)
+
+# boton_excel = customtkinter.CTkButton(ventana, text="Exportar a Excel", command=exportar_a_excel, fg_color="#4CAF50", hover_color="#45a049")
+# boton_excel.place(relx=0.86, rely=0.84)  # Ajusta posición según diseño
+
+# btn_pdf = customtkinter.CTkButton(ventana, text="Generar PDF", command=abrir_ventana_reporte)
+# btn_pdf.place(relx=0.86, rely=0.94)  # Puedes ajustar relx para moverlo más a la derecha o izquierda
   
 ventana.mainloop()

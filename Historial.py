@@ -29,10 +29,10 @@ ventana.geometry(f"{screen_width}x{screen_height}")
 locale.setlocale(locale.LC_TIME, "es_MX")
 
 # sys.argv contiene los argumentos pasados
-# RPE = sys.argv[1]  # Primer argumento
-# RPU = sys.argv[2]    # Segundo argumento
-RPU = 272991000151
-RPE = "JA117"
+RPE = sys.argv[1]  # Primer argumento
+RPU = sys.argv[2]    # Segundo argumento
+# RPU = 272991000151
+# RPE = "JA117"
 
 checkbox_checked = Image.open("Imagenes/check_on.png")
 checkbox_unchecked = Image.open("Imagenes/check_off.png")

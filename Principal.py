@@ -3,6 +3,8 @@ from tkinter import messagebox
 import subprocess
 from PIL import Image, ImageTk
 import customtkinter
+import sys
+import os
 
 # Propiedades de la ventana
 ventana = customtkinter.CTk()
@@ -32,16 +34,20 @@ def cargar():
     else:
         ventana.destroy()  # Cierra la ventana actual
 
-        # Evalúa el método seleccionado para cargar la ventana apropiada:
-        if Metodo == "Carga Instantanea":
-            subprocess.run(["python", "Carga_Ins.py", RPE, RPU, Metodo])
-        elif Metodo == "Factor Ajuste":
-            subprocess.run(["python", "Factor_Ajs.py", RPE, RPU, Metodo])
-        elif Metodo == "Historial":
-            subprocess.run(["python", "Historial.py", RPE, RPU, Metodo])
-        else:
-            messagebox.showerror("Error", "Opción no reconocida")
+    ruta_base = os.path.dirname(sys.executable)  # Ruta donde está el ejecutable actual
 
+    # Evalúa el método seleccionado para cargar la ventana apropiada:
+    if Metodo == "Carga Instantanea":
+        exe = os.path.join(ruta_base, "Carga_Ins.exe")
+    elif Metodo == "Factor Ajuste":
+        exe = os.path.join(ruta_base, "Factor_Ajs.exe")
+    elif Metodo == "Historial":
+        exe = os.path.join(ruta_base, "Historial.exe")
+    else:
+        messagebox.showerror("Error", "Opción no reconocida")
+        return
+    
+    subprocess.run([exe, RPE, RPU, Metodo])
 
 # Opciones del menú desplegable
 metodos = ["Carga Instantanea", "Factor Ajuste", "Historial"]
