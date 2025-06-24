@@ -10,7 +10,8 @@ class BD:
                 query = """
                 SELECT 
                     t2.c2s_rpu as RPU, 
-                    t2.c2s_nombre as NOMBRE,   
+                    t2.c2s_nombre as NOMBRE,
+                    t2.c2s_direccion as DIRECCION,     
                     (t5.i5_ciclo + t5.i5_division + t5.i5_zona + 
                     t5.i5_agencia + t5.i5_poblacion + 
                     t5.i5_ruta + t5.i5_folio) as CUENTA,
